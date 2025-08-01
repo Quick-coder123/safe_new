@@ -152,7 +152,7 @@ export default function AdminPage() {
 
   const saveData = async () => {
     try {
-      const response = await fetch('/api/save-settings', {
+      const response = await fetch('/api/save-settings-temp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
