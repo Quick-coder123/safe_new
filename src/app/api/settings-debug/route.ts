@@ -5,7 +5,7 @@ export async function GET() {
   try {
     console.log('🔍 Debug Settings API: Fetching settings...')
     
-    // Спочатку перевіримо, що є в таблиці settings
+    // Отримуємо всі налаштування
     const { data: allSettings, error: allError } = await supabase
       .from('settings')
       .select('*')
@@ -14,9 +14,13 @@ export async function GET() {
     
     if (allError) {
       console.error('❌ Settings query error:', allError)
+      return NextResponse.json({ 
+        error: 'Failed to fetch settings', 
+        details: allError.message 
+      }, { status: 500 })
     }
 
-    // Тепер отримаємо категорії та страхові ставки
+    // Отримуємо категорії та страхові ставки
     const { data: categories, error: catError } = await supabase
       .from('safe_categories')
       .select('*')
@@ -29,29 +33,40 @@ export async function GET() {
     console.log('📊 Categories:', categories?.length || 0)
     console.log('📊 Insurance rates:', insuranceRates?.length || 0)
 
-    // Якщо немає записів в settings, створимо дефолтний
-    let settings = null
-    if (!allSettings || allSettings.length === 0) {
-      console.log('📝 Creating default settings...')
-      const { data: newSettings, error: createError } = await supabase
-        .from('settings')
-        .insert([{
-          id: 1,
-          trust_document_price: '100',
-          package_price: '50',
-          guarantee_amount: '10000'
-        }])
-        .select()
-        .single()
+    if (catError) {
+      console.error('❌ Categories error:', catError)
+    }
+    if (insError) {
+      console.error('❌ Insurance rates error:', insError)
+    }
 
-      if (createError) {
-        console.error('❌ Create settings error:', createError)
+    // Перевіряємо, чи потрібно ініціалізувати дані
+    let needsInit = false
+    if (!categories || categories.length === 0) {
+      console.log('⚠️ Categories table is empty')
+      needsInit = true
+    }
+    if (!insuranceRates || insuranceRates.length === 0) {
+      console.log('⚠️ Insurance rates table is empty')
+      needsInit = true
+    }
+    if (!allSettings || allSettings.length === 0) {
+      console.log('⚠️ Settings table is empty')
+      needsInit = true
+    }
+
+    let settings = null
+    if (allSettings && allSettings.length > 0) {
+      // Якщо є key-value структура, конвертуємо
+      if (allSettings[0].key) {
+        settings = {}
+        allSettings.forEach((setting: any) => {
+          settings[setting.key] = setting.value
+        })
       } else {
-        settings = newSettings
-        console.log('✅ Default settings created')
+        // Пряма структура
+        settings = allSettings[0]
       }
-    } else {
-      settings = allSettings[0] // Беремо перший запис
     }
 
     return NextResponse.json({ 
@@ -62,6 +77,8 @@ export async function GET() {
         settingsCount: allSettings?.length || 0,
         categoriesCount: categories?.length || 0,
         insuranceRatesCount: insuranceRates?.length || 0,
+        needsInit,
+        initUrl: needsInit ? '/api/init-database' : null,
         note: 'TEMPORARY: Auth check disabled for debugging'
       }
     })
