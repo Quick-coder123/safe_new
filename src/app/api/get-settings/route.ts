@@ -36,10 +36,21 @@ export async function GET() {
     }
 
     // Перетворення налаштувань у зручний формат
-    const settingsMap = settings?.reduce((acc, setting) => {
-      acc[setting.key] = setting.value
-      return acc
-    }, {} as Record<string, string>) || {}
+    let settingsMap = {}
+    if (settings && settings.length > 0) {
+      // Перевіряємо структуру - key-value або пряма
+      if (settings[0].key) {
+        // Key-value структура
+        settingsMap = settings.reduce((acc, setting) => {
+          acc[setting.key] = setting.value
+          return acc
+        }, {} as Record<string, string>)
+      } else {
+        // Пряма структура - беремо перший запис і видаляємо службові поля
+        const { id, created_at, updated_at, ...directSettings } = settings[0]
+        settingsMap = directSettings
+      }
+    }
 
     return NextResponse.json({
       categories: categories || [],

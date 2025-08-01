@@ -108,11 +108,10 @@ export default function AdminPage() {
 
   const loadData = async () => {
     try {
-      // ТИМЧАСОВО: Використовуємо debug endpoint
-      const response = await fetch('/api/settings-debug')
+      const response = await fetch('/api/get-settings')
       const data = await response.json()
       
-      console.log('🔍 Debug: Loaded data from settings-debug:', data)
+      console.log('� Loaded data from get-settings:', data)
       
       if (data.categories) {
         const formattedCategories = data.categories.map((cat: any) => ({
@@ -153,8 +152,7 @@ export default function AdminPage() {
 
   const saveData = async () => {
     try {
-      // ТИМЧАСОВО: Використовуємо debug endpoint
-      const response = await fetch('/api/settings-debug', {
+      const response = await fetch('/api/save-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +166,7 @@ export default function AdminPage() {
 
       const data = await response.json()
       
-      console.log('🔍 Debug: Save response:', data)
+      console.log('� Save response:', data)
 
       if (response.ok) {
         alert('Дані успішно збережені!')
@@ -199,12 +197,11 @@ export default function AdminPage() {
 
   const loadAdministrators = async () => {
     try {
-      // ТИМЧАСОВО: Використовуємо debug endpoint
-      const response = await fetch('/api/administrators-debug')
+      const response = await fetch('/api/administrators')
 
       if (response.ok) {
         const { administrators } = await response.json()
-        console.log('🔍 Debug: Loaded administrators:', administrators)
+        console.log('� Loaded administrators:', administrators)
         setAdministrators(administrators)
       }
     } catch (error) {

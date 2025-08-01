@@ -81,25 +81,23 @@ export async function POST(request: NextRequest) {
     // Оновлення налаштувань
     if (settings && typeof settings === 'object') {
       console.log('⚙️ Updating settings...')
-      for (const [key, value] of Object.entries(settings)) {
-        const { error } = await supabase
-          .from('settings')
-          .upsert({
-            key,
-            value: String(value),
-            description: getSettingDescription(key),
-          }, {
-            onConflict: 'key'
-          })
+      
+      // Використовуємо пряму структуру з id=1
+      const { error } = await supabase
+        .from('settings')
+        .upsert({
+          id: 1,
+          ...settings
+        }, {
+          onConflict: 'id'
+        })
 
-        if (error) {
-          console.error('❌ Error updating setting:', error)
-          return NextResponse.json({ 
-            error: 'Failed to update settings',
-            details: error.message,
-            setting: key
-          }, { status: 500 })
-        }
+      if (error) {
+        console.error('❌ Error updating settings:', error)
+        return NextResponse.json({ 
+          error: 'Failed to update settings',
+          details: error.message
+        }, { status: 500 })
       }
     }
 
@@ -113,16 +111,4 @@ export async function POST(request: NextRequest) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
-}
-
-function getSettingDescription(key: string): string {
-  const descriptions: Record<string, string> = {
-    trust_document_price: 'Вартість довіреності в грн',
-    package_price: 'Вартість пакету в грн',
-    company_name: 'Назва компанії',
-    company_edrpou: 'Код ЄДРПОУ',
-    company_iban: 'IBAN рахунок',
-    payment_purpose: 'Призначення платежу',
-  }
-  return descriptions[key] || ''
 }
