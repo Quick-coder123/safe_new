@@ -152,7 +152,7 @@ export default function AdminPage() {
 
   const saveData = async () => {
     try {
-      const response = await fetch('/api/save-settings-temp', {
+      const response = await fetch('/api/save-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -197,11 +197,12 @@ export default function AdminPage() {
 
   const loadAdministrators = async () => {
     try {
-      const response = await fetch('/api/administrators')
+      // ТИМЧАСОВО: Використовуємо temp endpoint без аутентифікації
+      const response = await fetch('/api/administrators-temp')
 
       if (response.ok) {
         const { administrators } = await response.json()
-        console.log('� Loaded administrators:', administrators)
+        console.log('👥 Loaded administrators:', administrators)
         setAdministrators(administrators)
       }
     } catch (error) {
