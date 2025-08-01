@@ -3,7 +3,22 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 Save-settings API: Starting request...')
+    
+    // Перевірка environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey || supabaseUrl === 'https://placeholder.supabase.co') {
+      console.error('❌ Environment variables not configured:', { supabaseUrl, keyPresent: !!supabaseKey })
+      return NextResponse.json({ 
+        error: 'Database configuration error',
+        details: 'Environment variables not properly configured'
+      }, { status: 500 })
+    }
+
     const { categories, insuranceRates, settings } = await request.json()
+    console.log('📝 Received data:', { categoriesCount: categories?.length, insuranceRatesCount: insuranceRates?.length, settingsKeys: Object.keys(settings || {}) })
 
     // Перевірка аутентифікації через cookies
     const cookieHeader = request.headers.get('cookie')
@@ -35,8 +50,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('🔐 Authentication successful, proceeding with updates...')
+
     // Оновлення категорій сейфів
     if (categories && Array.isArray(categories)) {
+      console.log('📂 Updating categories...')
       for (const category of categories) {
         const { error } = await supabase
           .from('safe_categories')
@@ -82,6 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Оновлення налаштувань
     if (settings && typeof settings === 'object') {
+      console.log('⚙️ Updating settings...')
       for (const [key, value] of Object.entries(settings)) {
         const { error } = await supabase
           .from('settings')
@@ -94,17 +113,25 @@ export async function POST(request: NextRequest) {
           })
 
         if (error) {
-          console.error('Error updating setting:', error)
-          return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
+          console.error('❌ Error updating setting:', error)
+          return NextResponse.json({ 
+            error: 'Failed to update settings',
+            details: error.message,
+            setting: key
+          }, { status: 500 })
         }
       }
     }
 
+    console.log('✅ All updates completed successfully')
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('❌ Unexpected error:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 

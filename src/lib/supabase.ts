@@ -8,6 +8,14 @@ if (typeof window !== 'undefined' && supabaseUrl === 'https://placeholder.supaba
   console.warn('⚠️ Supabase environment variables not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment variables.')
 }
 
+// Додаткова перевірка на сервері
+if (typeof window === 'undefined' && supabaseUrl === 'https://placeholder.supabase.co') {
+  console.error('❌ Server-side: Supabase environment variables not configured!')
+  console.error('Required variables:')
+  console.error('- NEXT_PUBLIC_SUPABASE_URL')
+  console.error('- NEXT_PUBLIC_SUPABASE_ANON_KEY')
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export type Database = {
