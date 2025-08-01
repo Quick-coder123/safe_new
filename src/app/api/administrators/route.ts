@@ -18,8 +18,21 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // ТИМЧАСОВО: Відключаємо аутентифікацію для діагностики
-    console.log('⚠️ TEMPORARY: Skipping authentication for debugging')
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    console.log('🍪 API: Cookie header:', cookieHeader ? `Present (${cookieHeader.length} chars)` : 'Missing')
+    
+    const sessionValidation = await validateAdminSession(cookieHeader)
+    
+    if (!sessionValidation.isValid) {
+      console.log('❌ API: Authentication failed:', sessionValidation.error)
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        details: sessionValidation.error 
+      }, { status: 401 })
+    }
+
+    console.log('🔐 API: Authentication successful for admin:', sessionValidation.admin?.login)
 
     console.log('📊 Fetching administrators from database...')
     

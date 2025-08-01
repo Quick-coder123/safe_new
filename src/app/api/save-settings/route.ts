@@ -21,10 +21,16 @@ export async function POST(request: NextRequest) {
     const { categories, insuranceRates, settings } = await request.json()
     console.log('📝 Received data:', { categoriesCount: categories?.length, insuranceRatesCount: insuranceRates?.length, settingsKeys: Object.keys(settings || {}) })
 
-    // ТИМЧАСОВО: Відключаємо аутентифікацію для діагностики
-    console.log('⚠️ TEMPORARY: Skipping authentication for debugging')
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    const sessionValidation = await validateAdminSession(cookieHeader)
+    
+    if (!sessionValidation.isValid) {
+      console.log('❌ Authentication failed:', sessionValidation.error)
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    console.log('🔐 Proceeding with updates...')
+    console.log('🔐 Authentication successful, proceeding with updates...')
 
     // Оновлення категорій сейфів
     if (categories && Array.isArray(categories)) {
@@ -72,10 +78,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ТИМЧАСОВО: Пропускаємо збереження налаштувань через проблеми зі структурою таблиці
+    // Оновлення налаштувань
     if (settings && typeof settings === 'object') {
-      console.log('⚠️ TEMPORARY: Skipping settings save due to database schema issues')
-      console.log('⚙️ Settings that would be saved:', settings)
+      console.log('⚙️ Updating settings:', settings)
+      
+      try {
+        const { error } = await supabase
+          .from('settings')
+          .upsert({
+            id: 1,
+            ...settings
+          }, { onConflict: 'id' })
+
+        if (error) {
+          console.error('❌ Settings save error:', error)
+          // Не припиняємо виконання, просто логуємо помилку
+          console.log('⚠️ Settings could not be saved, but continuing with other updates')
+        } else {
+          console.log('✅ Settings saved successfully')
+        }
+      } catch (settingsError) {
+        console.error('❌ Settings save exception:', settingsError)
+        console.log('⚠️ Settings update failed, but continuing with other updates')
+      }
     }
 
     console.log('✅ All updates completed successfully')
