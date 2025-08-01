@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { validateAdminSession } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,33 +20,14 @@ export async function GET(request: NextRequest) {
 
     // Перевірка аутентифікації через cookies
     const cookieHeader = request.headers.get('cookie')
-    if (!cookieHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Знаходимо admin_session cookie
-    const cookies = cookieHeader.split('; ')
-    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
+    const sessionValidation = await validateAdminSession(cookieHeader)
     
-    if (!sessionCookie) {
+    if (!sessionValidation.isValid) {
+      console.log('❌ Authentication failed:', sessionValidation.error)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const sessionValue = sessionCookie.split('=')[1]
-    if (!sessionValue || sessionValue === '') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Перевірка сесії через API
-    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
-      headers: {
-        'Cookie': cookieHeader
-      }
-    })
-
-    if (!sessionResponse.ok) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    console.log('🔐 Authentication successful for admin:', sessionValidation.admin?.login)
 
     console.log('📊 Fetching administrators from database...')
     
@@ -149,36 +131,13 @@ export async function DELETE(request: NextRequest) {
   try {
     // Перевірка аутентифікації через cookies
     const cookieHeader = request.headers.get('cookie')
-    if (!cookieHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Знаходимо admin_session cookie
-    const cookies = cookieHeader.split('; ')
-    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
+    const sessionValidation = await validateAdminSession(cookieHeader)
     
-    if (!sessionCookie) {
+    if (!sessionValidation.isValid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const sessionValue = sessionCookie.split('=')[1]
-    if (!sessionValue || sessionValue === '') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Перевірка сесії та отримання інформації про поточного адміністратора
-    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
-      headers: {
-        'Cookie': cookieHeader
-      }
-    })
-
-    if (!sessionResponse.ok) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const sessionData = await sessionResponse.json()
-    const currentAdmin = sessionData.admin
+    const currentAdmin = sessionValidation.admin
 
     // Перевіряємо, чи є поточний користувач супер-адміністратором
     if (!currentAdmin || currentAdmin.role !== 'super_admin') {
