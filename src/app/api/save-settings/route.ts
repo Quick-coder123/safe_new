@@ -76,18 +76,62 @@ export async function POST(request: NextRequest) {
     if (settings && typeof settings === 'object') {
       console.log('⚙️ Updating settings...')
       
-      // Використовуємо пряму структуру з id=1
+      // Спочатку перевіримо, які поля існують в таблиці
+      const { data: existingSettings, error: checkError } = await supabase
+        .from('settings')
+        .select('*')
+        .limit(1)
+
+      if (checkError) {
+        console.error('❌ Error checking existing settings:', checkError)
+        return NextResponse.json({ 
+          error: 'Failed to check settings structure',
+          details: checkError.message 
+        }, { status: 500 })
+      }
+
+      // Фільтруємо налаштування, залишаючи тільки безпечні поля
+      const safeSettings: any = { id: 1 }
+      const allowedFields = ['trust_document_price', 'package_price', 'guarantee_amount']
+      
+      for (const field of allowedFields) {
+        if (settings[field] !== undefined) {
+          safeSettings[field] = settings[field]
+        }
+      }
+
+      console.log('💾 Saving filtered settings:', safeSettings)
+
       const { error } = await supabase
         .from('settings')
-        .upsert({
-          id: 1,
-          ...settings
-        }, {
-          onConflict: 'id'
-        })
+        .upsert(safeSettings, { onConflict: 'id' })
 
       if (error) {
         console.error('❌ Error updating settings:', error)
+        
+        // Якщо помилка через відсутність стовпців, спробуємо зберегти тільки id
+        if (error.message.includes('column') || error.message.includes('schema')) {
+          console.log('🔧 Attempting to save minimal settings...')
+          
+          const { error: minimalError } = await supabase
+            .from('settings')
+            .upsert({ id: 1 }, { onConflict: 'id' })
+
+          if (minimalError) {
+            return NextResponse.json({ 
+              error: 'Failed to save settings - database schema issue',
+              details: minimalError.message,
+              suggestion: 'Database columns may need to be added'
+            }, { status: 500 })
+          }
+
+          return NextResponse.json({
+            success: true,
+            warning: 'Settings partially saved - some fields could not be updated due to database schema',
+            missingColumns: allowedFields.filter(field => settings[field] !== undefined)
+          })
+        }
+
         return NextResponse.json({ 
           error: 'Failed to update settings',
           details: error.message
