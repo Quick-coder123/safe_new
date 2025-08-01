@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 export async function POST(request: NextRequest) {
   try {
-    const { login, password_hash, role, is_temp_password } = await request.json()
+    const { login, password, password_hash, role, is_temp_password } = await request.json()
 
-    if (!login || !password_hash || !role) {
+    if (!login || (!password && !password_hash) || !role) {
       return NextResponse.json(
-        { error: 'Логін, хеш паролю та роль є обов\'язковими' },
+        { error: 'Логін, пароль та роль є обов\'язковими' },
         { status: 400 }
       )
+    }
+
+    // Хешуємо пароль, якщо передано plain пароль
+    let finalPasswordHash = password_hash
+    if (password && !password_hash) {
+      finalPasswordHash = await bcrypt.hash(password, 10)
     }
 
     // Перевіряємо, чи не існує вже адміністратор з таким логіном
@@ -31,7 +38,7 @@ export async function POST(request: NextRequest) {
       .from('administrators')
       .insert({
         login,
-        password_hash,
+        password_hash: finalPasswordHash,
         role,
         is_temp_password: is_temp_password || false
       })

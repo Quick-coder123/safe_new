@@ -70,6 +70,10 @@ export default function AdminPage() {
   
   // Стан для модального вікна зміни пароля
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  
+  // Стан для модального вікна з новими credentials
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
+  const [newCredentials, setNewCredentials] = useState({ login: '', password: '' })
 
   useEffect(() => {
     if (admin) {
@@ -208,10 +212,6 @@ export default function AdminPage() {
     try {
       // Генеруємо тимчасовий пароль
       const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
-      
-      // Хешуємо пароль
-      const bcrypt = require('bcryptjs')
-      const passwordHash = await bcrypt.hash(tempPassword, 10)
 
       const response = await fetch('/api/create-admin', {
         method: 'POST',
@@ -220,14 +220,16 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           login: newAdminLogin,
-          password_hash: passwordHash,
+          password: tempPassword, // Передаємо plain пароль, хешування на сервері
           role: newAdminRole,
           is_temp_password: true
         }),
       })
 
       if (response.ok) {
-        alert(`Адміністратора успішно додано!\n\nЛогін: ${newAdminLogin}\nТимчасовий пароль: ${tempPassword}\n\nЗбережіть цей пароль! Адміністратор повинен змінити його при першому вході.`)
+        // Показуємо модальне вікно з credentials
+        setNewCredentials({ login: newAdminLogin, password: tempPassword })
+        setShowCredentialsModal(true)
         setNewAdminLogin('')
         setNewAdminRole('admin')
         loadAdministrators()
@@ -316,6 +318,45 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error resetting password:', error)
       alert('Помилка скидання пароля')
+    }
+  }
+
+  // Функції для копіювання credentials
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch (err) {
+      console.error('Failed to copy: ', err)
+      return false
+    }
+  }
+
+  const copyLogin = async () => {
+    const success = await copyToClipboard(newCredentials.login)
+    if (success) {
+      alert('Логін скопійовано до буферу обміну!')
+    } else {
+      alert('Помилка копіювання')
+    }
+  }
+
+  const copyPassword = async () => {
+    const success = await copyToClipboard(newCredentials.password)
+    if (success) {
+      alert('Пароль скопійовано до буферу обміну!')
+    } else {
+      alert('Помилка копіювання')
+    }
+  }
+
+  const copyBoth = async () => {
+    const both = `Логін: ${newCredentials.login}\nПароль: ${newCredentials.password}`
+    const success = await copyToClipboard(both)
+    if (success) {
+      alert('Логін та пароль скопійовано до буферу обміну!')
+    } else {
+      alert('Помилка копіювання')
     }
   }
 
@@ -715,6 +756,88 @@ export default function AdminPage() {
         onClose={() => setShowPasswordModal(false)}
         isRequired={hasTempPassword}
       />
+
+      {/* Модальне вікно з новими credentials */}
+      {showCredentialsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="text-center mb-4">
+              <div className="text-4xl mb-2">✅</div>
+              <h3 className="text-xl font-bold text-green-600">
+                Адміністратора успішно створено!
+              </h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Логін:</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input 
+                        type="text" 
+                        value={newCredentials.login} 
+                        readOnly 
+                        className="flex-1 p-2 border rounded bg-white text-gray-900 font-mono"
+                      />
+                      <button
+                        onClick={copyLogin}
+                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                        title="Копіювати логін"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Тимчасовий пароль:</label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input 
+                        type="text" 
+                        value={newCredentials.password} 
+                        readOnly 
+                        className="flex-1 p-2 border rounded bg-white text-gray-900 font-mono"
+                      />
+                      <button
+                        onClick={copyPassword}
+                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                        title="Копіювати пароль"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={copyBoth}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm font-medium"
+                  >
+                    📋 Копіювати обидва
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-yellow-50 p-3 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ <strong>Важливо:</strong> Збережіть ці дані! Адміністратор повинен змінити пароль при першому вході.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setShowCredentialsModal(false)}
+                className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+              >
+                Закрити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
