@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ConfigurationError from '@/components/ConfigurationError'
 import { 
   calculateRental, 
   formatDateForInput, 
@@ -111,7 +112,9 @@ IBAN: ${paymentDetails.iban}
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <ConfigurationError />
+      <div className="space-y-6">
       {/* Заголовок */}
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2" style={{color: '#1f2937'}}>
@@ -639,5 +642,6 @@ IBAN: ${paymentDetails.iban}
         </div>
       </div>
     </div>
+    </>
   )
 }
