@@ -2,13 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseClient } from '@/lib/supabase'
 
 // Temporary endpoint to delete administrators without authentication
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest) {
   try {
     const supabase = createSupabaseClient()
-    const { id } = await params
+    
+    // Extract ID from URL path
+    const url = new URL(request.url)
+    const pathParts = url.pathname.split('/')
+    const id = pathParts[pathParts.length - 1]
+
+    if (!id || id === '[id]') {
+      return NextResponse.json(
+        { error: 'ID адміністратора обов\'язковий' },
+        { status: 400 }
+      )
+    }
 
     // Перевіряємо чи не є це останнім адміністратором
     const { count } = await supabase
