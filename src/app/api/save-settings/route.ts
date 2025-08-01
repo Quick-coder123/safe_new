@@ -78,24 +78,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Оновлення налаштувань
+    // Оновлення налаштувань (key-value структура)
     if (settings && typeof settings === 'object') {
-      console.log('⚙️ Updating settings:', settings)
+      console.log('⚙️ Updating settings (key-value structure):', settings)
       
       try {
-        const { error } = await supabase
-          .from('settings')
-          .upsert({
-            id: 1,
-            ...settings
-          }, { onConflict: 'id' })
+        // Перетворюємо пряму структуру в key-value записи
+        for (const [key, value] of Object.entries(settings)) {
+          const { error } = await supabase
+            .from('settings')
+            .upsert({
+              key,
+              value: String(value),
+              description: getSettingDescription(key)
+            }, { onConflict: 'key' })
 
-        if (error) {
-          console.error('❌ Settings save error:', error)
-          // Не припиняємо виконання, просто логуємо помилку
-          console.log('⚠️ Settings could not be saved, but continuing with other updates')
-        } else {
-          console.log('✅ Settings saved successfully')
+          if (error) {
+            console.error(`❌ Error saving setting ${key}:`, error)
+          } else {
+            console.log(`✅ Setting ${key} saved successfully`)
+          }
         }
       } catch (settingsError) {
         console.error('❌ Settings save exception:', settingsError)
@@ -113,4 +115,17 @@ export async function POST(request: NextRequest) {
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
+}
+
+function getSettingDescription(key: string): string {
+  const descriptions: Record<string, string> = {
+    trust_document_price: 'Вартість довіреності в грн',
+    package_price: 'Вартість пакету в грн',
+    guarantee_amount: 'Сума грошового забезпечення в грн',
+    company_name: 'Назва компанії',
+    company_edrpou: 'Код ЄДРПОУ',
+    company_iban: 'IBAN рахунок',
+    payment_purpose: 'Призначення платежу',
+  }
+  return descriptions[key] || ''
 }

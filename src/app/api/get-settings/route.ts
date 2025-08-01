@@ -40,7 +40,7 @@ export async function GET() {
     if (settings && settings.length > 0) {
       // Перевіряємо структуру - key-value або пряма
       if (settings[0].key) {
-        // Key-value структура
+        // Key-value структура (правильна для Supabase)
         settingsMap = settings.reduce((acc, setting) => {
           acc[setting.key] = setting.value
           return acc
