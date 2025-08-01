@@ -20,14 +20,19 @@ export async function GET(request: NextRequest) {
 
     // Перевірка аутентифікації через cookies
     const cookieHeader = request.headers.get('cookie')
+    console.log('🍪 API: Cookie header:', cookieHeader ? `Present (${cookieHeader.length} chars)` : 'Missing')
+    
     const sessionValidation = await validateAdminSession(cookieHeader)
     
     if (!sessionValidation.isValid) {
-      console.log('❌ Authentication failed:', sessionValidation.error)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      console.log('❌ API: Authentication failed:', sessionValidation.error)
+      return NextResponse.json({ 
+        error: 'Unauthorized',
+        details: sessionValidation.error 
+      }, { status: 401 })
     }
 
-    console.log('🔐 Authentication successful for admin:', sessionValidation.admin?.login)
+    console.log('🔐 API: Authentication successful for admin:', sessionValidation.admin?.login)
 
     console.log('📊 Fetching administrators from database...')
     
