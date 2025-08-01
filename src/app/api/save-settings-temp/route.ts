@@ -33,10 +33,10 @@ export async function POST(request: NextRequest) {
           .upsert({
             id: category.id,
             name: category.name,
-            rate_up_to_30: category.rates.up_to_30,
-            rate_31_to_90: category.rates.from_31_to_90,
-            rate_91_to_180: category.rates.from_91_to_180,
-            rate_181_to_365: category.rates.from_181_to_365,
+            rate_up_to_30: category.rate_up_to_30,
+            rate_31_to_90: category.rate_31_to_90,
+            rate_91_to_180: category.rate_91_to_180,
+            rate_181_to_365: category.rate_181_to_365,
           }, {
             onConflict: 'id'
           })
