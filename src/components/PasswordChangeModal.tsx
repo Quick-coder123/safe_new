@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 interface PasswordChangeModalProps {
@@ -57,17 +56,10 @@ export default function PasswordChangeModal({ isOpen, onClose, isRequired = fals
     setLoading(true)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setError('Помилка авторизації')
-        return
-      }
-
       const response = await fetch('/api/change-password', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           currentPassword,
@@ -75,13 +67,9 @@ export default function PasswordChangeModal({ isOpen, onClose, isRequired = fals
         }),
       })
 
-      if (response.ok) {
-        // Оновлюємо статус тимчасового пароля
-        await supabase
-          .from('administrators')
-          .update({ is_temp_password: false })
-          .eq('user_id', session.user.id)
+      const data = await response.json()
 
+      if (response.ok) {
         alert('Пароль успішно змінено!')
         setCurrentPassword('')
         setNewPassword('')
@@ -93,8 +81,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isRequired = fals
           window.location.reload()
         }
       } else {
-        const { error } = await response.json()
-        setError(error || 'Помилка зміни пароля')
+        setError(data.error || 'Помилка зміни пароля')
       }
     } catch (error) {
       console.error('Error changing password:', error)

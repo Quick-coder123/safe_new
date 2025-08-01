@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 export default function CreateAdminPage() {
-  const [email, setEmail] = useState('admin@example.com')
+  const [login, setLogin] = useState('admin')
   const [password, setPassword] = useState('Admin123!')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -15,33 +15,31 @@ export default function CreateAdminPage() {
     setMessage('')
 
     try {
-      // Створюємо користувача
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+      // Хешуємо пароль
+      const passwordHash = await bcrypt.hash(password, 10)
+      
+      // Створюємо адміністратора через наш API
+      const response = await fetch('/api/create-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          login: login,
+          password_hash: passwordHash,
+          role: 'super_admin',
+          is_temp_password: true
+        }),
       })
 
-      if (error) {
-        setMessage('Помилка: ' + error.message)
-        setLoading(false)
-        return
-      }
+      const data = await response.json()
 
-      if (data.user) {
-        // Додаємо в таблицю адміністраторів як супер-адміністратора
-        const { error: insertError } = await supabase
-          .from('administrators')
-          .insert({
-            user_id: data.user.id,
-            email: email,
-            role: 'super_admin'
-          })
-
-        if (insertError) {
-          setMessage('Помилка додавання в таблицю адміністраторів: ' + insertError.message)
-        } else {
-          setMessage('Супер-адміністратор успішно створений! Email: ' + email)
-        }
+      if (response.ok) {
+        setMessage('Супер-адміністратор успішно створений! Логін: ' + login)
+        setLogin('')
+        setPassword('')
+      } else {
+        setMessage('Помилка: ' + data.error)
       }
     } catch (error) {
       setMessage('Неочікувана помилка: ' + String(error))
@@ -59,13 +57,17 @@ export default function CreateAdminPage() {
         
         <form onSubmit={createAdmin} className="space-y-4">
           <div className="form-group">
-            <label className="form-label">Email адміністратора</label>
+            <label className="form-label">Логін адміністратора</label>
             <input
-              type="email"
+              type="text"
               className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
               required
+              minLength={3}
+              maxLength={50}
+              pattern="[a-zA-Z0-9_-]+"
+              title="Логін може містити тільки букви, цифри, підкреслення та дефіси"
             />
           </div>
           
@@ -103,7 +105,7 @@ export default function CreateAdminPage() {
         <div className="mt-6 text-sm text-gray-600">
           <p className="font-semibold">Інструкції:</p>
           <ol className="list-decimal list-inside space-y-1 mt-2">
-            <li>Введіть email та пароль для адміністратора</li>
+            <li>Введіть логін та пароль для адміністратора</li>
             <li>Натисніть "Створити адміністратора"</li>
             <li>Перейдіть на <a href="/admin" className="text-blue-600 hover:underline">/admin</a></li>
             <li>Увійдіть з створеними даними</li>

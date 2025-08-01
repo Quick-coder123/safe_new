@@ -5,16 +5,33 @@ export async function POST(request: NextRequest) {
   try {
     const { categories, insuranceRates, settings } = await request.json()
 
-    // Перевірка аутентифікації
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    if (!cookieHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const token = authHeader.substring(7)
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // Знаходимо admin_session cookie
+    const cookies = cookieHeader.split('; ')
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
+    
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (authError || !user) {
+    const sessionValue = sessionCookie.split('=')[1]
+    if (!sessionValue || sessionValue === '') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Перевірка сесії через API
+    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
+      headers: {
+        'Cookie': cookieHeader
+      }
+    })
+
+    if (!sessionResponse.ok) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -30,6 +47,8 @@ export async function POST(request: NextRequest) {
             rate_31_to_90: category.rates.from_31_to_90,
             rate_91_to_180: category.rates.from_91_to_180,
             rate_181_to_365: category.rates.from_181_to_365,
+          }, {
+            onConflict: 'id'
           })
 
         if (error) {
@@ -70,6 +89,8 @@ export async function POST(request: NextRequest) {
             key,
             value: String(value),
             description: getSettingDescription(key),
+          }, {
+            onConflict: 'key'
           })
 
         if (error) {

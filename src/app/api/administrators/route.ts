@@ -3,15 +3,33 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    if (!cookieHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    // Знаходимо admin_session cookie
+    const cookies = cookieHeader.split('; ')
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
     
-    if (userError || !user) {
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const sessionValue = sessionCookie.split('=')[1]
+    if (!sessionValue || sessionValue === '') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Перевірка сесії через API
+    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
+      headers: {
+        'Cookie': cookieHeader
+      }
+    })
+
+    if (!sessionResponse.ok) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -104,25 +122,40 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    if (!cookieHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    // Знаходимо admin_session cookie
+    const cookies = cookieHeader.split('; ')
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
     
-    if (userError || !user) {
+    if (!sessionCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const sessionValue = sessionCookie.split('=')[1]
+    if (!sessionValue || sessionValue === '') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Перевірка сесії та отримання інформації про поточного адміністратора
+    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
+      headers: {
+        'Cookie': cookieHeader
+      }
+    })
+
+    if (!sessionResponse.ok) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const sessionData = await sessionResponse.json()
+    const currentAdmin = sessionData.admin
 
     // Перевіряємо, чи є поточний користувач супер-адміністратором
-    const { data: currentAdmin } = await supabase
-      .from('administrators')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
     if (!currentAdmin || currentAdmin.role !== 'super_admin') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -130,13 +163,7 @@ export async function DELETE(request: NextRequest) {
     const { administratorId } = await request.json()
 
     // Не дозволяємо видаляти самого себе
-    const { data: adminToDelete } = await supabase
-      .from('administrators')
-      .select('user_id')
-      .eq('id', administratorId)
-      .single()
-
-    if (adminToDelete?.user_id === user.id) {
+    if (currentAdmin.id === administratorId) {
       return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 })
     }
 
@@ -149,9 +176,6 @@ export async function DELETE(request: NextRequest) {
     if (deleteError) {
       throw deleteError
     }
-
-    // Примітка: Ми не видаляємо користувача з auth.users через обмеження Supabase
-    // Користувач залишиться в auth.users, але не буде мати ролі адміністратора
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -3,25 +3,40 @@ import { supabase } from '@/lib/supabase'
 
 export async function PUT(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    if (!cookieHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    // Знаходимо admin_session cookie
+    const cookies = cookieHeader.split('; ')
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
     
-    if (userError || !user) {
+    if (!sessionCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const sessionValue = sessionCookie.split('=')[1]
+    if (!sessionValue || sessionValue === '') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Перевірка сесії та отримання інформації про поточного адміністратора
+    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
+      headers: {
+        'Cookie': cookieHeader
+      }
+    })
+
+    if (!sessionResponse.ok) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const sessionData = await sessionResponse.json()
+    const currentAdmin = sessionData.admin
 
     // Перевіряємо, чи є поточний користувач супер-адміністратором
-    const { data: currentAdmin } = await supabase
-      .from('administrators')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
     if (!currentAdmin || currentAdmin.role !== 'super_admin') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
@@ -29,13 +44,7 @@ export async function PUT(request: NextRequest) {
     const { administratorId, role } = await request.json()
 
     // Не дозволяємо змінювати свою роль
-    const { data: adminToUpdate } = await supabase
-      .from('administrators')
-      .select('user_id')
-      .eq('id', administratorId)
-      .single()
-
-    if (adminToUpdate?.user_id === user.id) {
+    if (currentAdmin.id === administratorId) {
       return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
     }
 

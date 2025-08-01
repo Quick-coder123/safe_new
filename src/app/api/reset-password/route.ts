@@ -1,68 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import bcrypt from 'bcryptjs'
 
 export async function PUT(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
+    // Перевірка аутентифікації через cookies
+    const cookieHeader = request.headers.get('cookie')
+    if (!cookieHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    // Знаходимо admin_session cookie
+    const cookies = cookieHeader.split('; ')
+    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
     
-    if (userError || !user) {
+    if (!sessionCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const sessionValue = sessionCookie.split('=')[1]
+    if (!sessionValue || sessionValue === '') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Перевірка сесії та отримання інформації про поточного адміністратора
+    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin-session`, {
+      headers: {
+        'Cookie': cookieHeader
+      }
+    })
+
+    if (!sessionResponse.ok) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const sessionData = await sessionResponse.json()
+    const currentAdmin = sessionData.admin
 
     // Перевіряємо, чи є поточний користувач супер-адміністратором
-    const { data: currentAdmin } = await supabase
-      .from('administrators')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
     if (!currentAdmin || currentAdmin.role !== 'super_admin') {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const { administratorId } = await request.json()
 
-    // Отримуємо дані адміністратора
-    const { data: adminToReset } = await supabase
-      .from('administrators')
-      .select('user_id, email')
-      .eq('id', administratorId)
-      .single()
-
-    if (!adminToReset) {
-      return NextResponse.json({ error: 'Administrator not found' }, { status: 404 })
-    }
-
     // Не дозволяємо скидати пароль самому собі
-    if (adminToReset.user_id === user.id) {
+    if (currentAdmin.id === administratorId) {
       return NextResponse.json({ error: 'Cannot reset your own password' }, { status: 400 })
     }
 
     // Генеруємо новий тимчасовий пароль
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '!'
+    
+    // Хешуємо пароль
+    const hashedPassword = await bcrypt.hash(tempPassword, 10)
 
-    // Оновлюємо пароль через auth update (це потребує особливих прав)
-    // Альтернативно можемо надіслати email для скидання пароля
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(adminToReset.email)
+    // Оновлюємо пароль адміністратора
+    const { error: updateError } = await supabase
+      .from('administrators')
+      .update({ 
+        password_hash: hashedPassword,
+        is_temp_password: true
+      })
+      .eq('id', administratorId)
 
-    if (resetError) {
-      console.error('Error sending reset email:', resetError)
-      // Якщо не вдалося надіслати email, повертаємо помилку
-      return NextResponse.json({ 
-        error: 'Не вдалося скинути пароль. Спробуйте надіслати лист для скидання пароля.',
-        suggestion: 'Використайте функцію "Забули пароль?" на сторінці входу.'
-      }, { status: 500 })
+    if (updateError) {
+      throw updateError
     }
 
     return NextResponse.json({ 
       success: true,
-      message: 'Лист для скидання пароля надіслано на email адміністратора.'
+      tempPassword,
+      message: `Пароль успішно скинуто!\n\nНовий тимчасовий пароль: ${tempPassword}\n\nЗбережіть цей пароль! Адміністратор повинен змінити його при наступному вході.`
     })
   } catch (error) {
     console.error('Error resetting password:', error)

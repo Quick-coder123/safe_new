@@ -29,9 +29,9 @@ export default function HomePage() {
 
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [paymentDetails, setPaymentDetails] = useState({
-    recipient: 'ТОВ "Сейф-Банк"',
-    edrpou: '12345678',
-    iban: 'UA123456789012345678901234567',
+    recipient: '',
+    edrpou: '',
+    iban: '',
     purpose: 'Оплата за оренду індивідуального сейфу',
   })
   const [insurancePaymentUrl, setInsurancePaymentUrl] = useState('')
@@ -405,13 +405,13 @@ IBAN: ${paymentDetails.iban}
           
           <div className="space-y-4">
             <div className="form-group">
-              <label className="form-label">Отримувач платежу</label>
+              <label className="form-label">Назва отримувача</label>
               <input 
                 type="text"
                 className="form-input"
                 value={paymentDetails.recipient}
                 onChange={(e) => setPaymentDetails(prev => ({...prev, recipient: e.target.value}))}
-                placeholder="Назва компанії-отримувача"
+                placeholder="Назва отримувача"
               />
             </div>
             
@@ -421,8 +421,14 @@ IBAN: ${paymentDetails.iban}
                 type="text"
                 className="form-input"
                 value={paymentDetails.edrpou}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, edrpou: e.target.value}))}
-                placeholder="12345678"
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10)
+                  setPaymentDetails(prev => ({...prev, edrpou: value}))
+                }}
+                placeholder="1234567890"
+                maxLength={10}
+                pattern="[0-9]{10}"
+                title="ЄДРПОУ повинен містити рівно 10 цифр"
               />
             </div>
             

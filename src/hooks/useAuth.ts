@@ -1,74 +1,75 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { type User } from '@supabase/supabase-js'
+
+interface AdminData {
+  adminId: number
+  login: string
+  role: string
+  isTempPassword: boolean
+}
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
+  const [admin, setAdmin] = useState<AdminData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [adminRole, setAdminRole] = useState<string | null>(null)
-  const [hasTempPassword, setHasTempPassword] = useState<boolean>(false)
 
   useEffect(() => {
-    checkUser()
-
-    // Підписка на зміни статусу аутентифікації
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session?.user) {
-          setUser(session.user)
-          checkAdminRole(session.user.id)
-        } else {
-          setUser(null)
-          setAdminRole(null)
-          setHasTempPassword(false)
-        }
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    checkAdminSession()
   }, [])
 
-  const checkUser = async () => {
+  const checkAdminSession = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        await checkAdminRole(user.id)
-      }
+      const response = await fetch('/api/admin-session')
+      const data = await response.json()
+      
+      setAdmin(data.admin)
     } catch (error) {
-      console.error('Error checking user:', error)
-      setUser(null)
-      setAdminRole(null)
-      setHasTempPassword(false)
+      console.error('Error checking admin session:', error)
+      setAdmin(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const checkAdminRole = async (userId: string) => {
+  const login = async (login: string, password: string) => {
     try {
-      const { data: admin } = await supabase
-        .from('administrators')
-        .select('role, is_temp_password')
-        .eq('user_id', userId)
-        .single()
-      
-      setAdminRole(admin?.role || null)
-      setHasTempPassword(admin?.is_temp_password || false)
+      const response = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ login, password }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setAdmin(data.admin)
+        return { success: true }
+      } else {
+        return { success: false, error: data.error }
+      }
     } catch (error) {
-      console.error('Error checking admin role:', error)
-      setAdminRole(null)
-      setHasTempPassword(false)
+      console.error('Error during login:', error)
+      return { success: false, error: 'Помилка з\'єднання' }
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await fetch('/api/admin-session', { method: 'DELETE' })
+      setAdmin(null)
+    } catch (error) {
+      console.error('Error during logout:', error)
     }
   }
 
   return {
-    user,
+    admin,
     loading,
-    adminRole,
-    hasTempPassword,
-    isAdmin: !!adminRole,
-    isSuperAdmin: adminRole === 'super_admin'
+    login,
+    logout,
+    isAdmin: !!admin,
+    isSuperAdmin: admin?.role === 'super_admin',
+    adminRole: admin?.role || null,
+    hasTempPassword: admin?.isTempPassword || false
   }
 }

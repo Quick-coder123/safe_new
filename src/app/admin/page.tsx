@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import PasswordChangeModal from '@/components/PasswordChangeModal'
-import { type User } from '@supabase/supabase-js'
+import LoginForm from '@/components/LoginForm'
 
 interface SafeCategory {
   id: string
@@ -41,8 +41,7 @@ interface ChangeLog {
 
 interface Administrator {
   id: number
-  user_id: string
-  email: string
+  login: string
   role: 'admin' | 'super_admin'
   is_temp_password: boolean
   created_at: string
@@ -51,36 +50,28 @@ interface Administrator {
 
 export default function AdminPage() {
   const router = useRouter()
-  const { isSuperAdmin, hasTempPassword } = useAuth()
-  const [user, setUser] = useState<User | null>(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(true)
+  const { isAdmin, isSuperAdmin, hasTempPassword, admin, loading: authLoading, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('categories')
 
   const [categories, setCategories] = useState<SafeCategory[]>([])
   const [insuranceRates, setInsuranceRates] = useState<InsuranceRate[]>([])
   const [settings, setSettings] = useState<Settings>({
-    trust_document_price: '300',
-    package_price: '50',
-    guarantee_amount: '5000',
+    trust_document_price: '',
+    package_price: '',
+    guarantee_amount: '',
   })
   const [changeLogs, setChangeLogs] = useState<ChangeLog[]>([])
   const [administrators, setAdministrators] = useState<Administrator[]>([])
   
   // Стан для форми додавання адміністратора
-  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [newAdminLogin, setNewAdminLogin] = useState('')
   const [newAdminRole, setNewAdminRole] = useState<'admin' | 'super_admin'>('admin')
   
   // Стан для модального вікна зміни пароля
   const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   useEffect(() => {
-    checkUser()
-  }, [])
-
-  useEffect(() => {
-    if (user) {
+    if (admin) {
       loadData()
       if (isSuperAdmin) {
         loadAdministrators()
@@ -90,34 +81,23 @@ export default function AdminPage() {
         setShowPasswordModal(true)
       }
     }
-  }, [user, isSuperAdmin, hasTempPassword])
+  }, [admin, isSuperAdmin, hasTempPassword])
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-    setLoading(false)
+  // Показуємо форму логіну, якщо користувач не авторизований
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Завантаження...</div>
+      </div>
+    )
   }
 
-  const signIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
-      alert('Помилка входу: ' + error.message)
-    } else {
-      setUser(data.user)
-    }
-    setLoading(false)
+  if (!isAdmin) {
+    return <LoginForm onSuccess={() => window.location.reload()} />
   }
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
+  const handleLogout = async () => {
+    await logout()
     router.push('/')
   }
 
@@ -165,17 +145,10 @@ export default function AdminPage() {
 
   const saveData = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        alert('Помилка авторизації')
-        return
-      }
-
       const response = await fetch('/api/save-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           categories,
@@ -184,11 +157,13 @@ export default function AdminPage() {
         }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
         alert('Дані успішно збережені!')
         loadData() // Перезавантажуємо дані
       } else {
-        alert('Помилка збереження даних')
+        alert('Помилка збереження даних: ' + (data.error || 'Невідома помилка'))
       }
     } catch (error) {
       console.error('Error saving data:', error)
@@ -212,14 +187,7 @@ export default function AdminPage() {
 
   const loadAdministrators = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const response = await fetch('/api/administrators', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      })
+      const response = await fetch('/api/administrators')
 
       if (response.ok) {
         const { administrators } = await response.json()
@@ -231,35 +199,35 @@ export default function AdminPage() {
   }
 
   const createAdministrator = async () => {
-    if (!newAdminEmail.trim()) {
-      alert('Введіть email адміністратора')
+    if (!newAdminLogin.trim()) {
+      alert('Введіть логін адміністратора')
       return
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      // Генеруємо тимчасовий пароль
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
+      
+      // Хешуємо пароль
+      const bcrypt = require('bcryptjs')
+      const passwordHash = await bcrypt.hash(tempPassword, 10)
 
-      const response = await fetch('/api/administrators', {
+      const response = await fetch('/api/create-admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          email: newAdminEmail,
+          login: newAdminLogin,
+          password_hash: passwordHash,
           role: newAdminRole,
+          is_temp_password: true
         }),
       })
 
       if (response.ok) {
-        const result = await response.json()
-        if (result.tempPassword) {
-          alert(`Адміністратора успішно додано!\n\nEmail: ${newAdminEmail}\nТимчасовий пароль: ${result.tempPassword}\n\nЗбережіть цей пароль! Адміністратор повинен змінити його при першому вході.`)
-        } else {
-          alert('Адміністратора успішно додано!')
-        }
-        setNewAdminEmail('')
+        alert(`Адміністратора успішно додано!\n\nЛогін: ${newAdminLogin}\nТимчасовий пароль: ${tempPassword}\n\nЗбережіть цей пароль! Адміністратор повинен змінити його при першому вході.`)
+        setNewAdminLogin('')
         setNewAdminRole('admin')
         loadAdministrators()
       } else {
@@ -278,14 +246,10 @@ export default function AdminPage() {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
       const response = await fetch('/api/administrators', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ administratorId }),
       })
@@ -305,14 +269,10 @@ export default function AdminPage() {
 
   const updateAdministratorRole = async (administratorId: number, role: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
       const response = await fetch(`/api/administrators/${administratorId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ administratorId, role }),
       })
@@ -336,14 +296,10 @@ export default function AdminPage() {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
       const response = await fetch('/api/reset-password', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ administratorId }),
       })
@@ -366,49 +322,6 @@ export default function AdminPage() {
     setSettings(prev => ({ ...prev, [key]: value }))
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="max-w-md mx-auto mt-8">
-        <div className="calculator-card">
-          <h1 className="text-2xl font-bold mb-6 text-center">🔐 Авторизація адміністратора</h1>
-          <form onSubmit={signIn} className="space-y-4">
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input
-                type="email"
-                className="form-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Пароль</label>
-              <input
-                type="password"
-                className="form-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <button type="submit" className="w-full btn-primary" disabled={loading}>
-              {loading ? 'Вхід...' : 'Увійти'}
-            </button>
-          </form>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Заголовок */}
@@ -428,14 +341,14 @@ export default function AdminPage() {
             ← Повернутися до калькулятора
           </a>
           <span className="text-gray-600">
-            Вітаємо, {user.email}
+            Вітаємо, {admin?.login}
             {hasTempPassword && (
               <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
                 Тимчасовий пароль
               </span>
             )}
           </span>
-          <button onClick={signOut} className="btn-secondary">
+          <button onClick={handleLogout} className="btn-secondary">
             Вийти
           </button>
         </div>
@@ -475,7 +388,7 @@ export default function AdminPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Категорія</th>
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900 w-48 min-w-[12rem]">Категорія</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">до 30 днів</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">31-90 днів</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">91-180 днів</th>
@@ -485,7 +398,7 @@ export default function AdminPage() {
                 <tbody className="bg-white">
                   {categories.map((category) => (
                     <tr key={category.id} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-3 font-semibold text-gray-900">
+                      <td className="border border-gray-300 px-4 py-3 font-semibold text-gray-900 w-48 min-w-[12rem]">
                         {category.name}
                       </td>
                       <td className="border border-gray-300 px-3 py-2">
@@ -628,13 +541,15 @@ export default function AdminPage() {
               <h3 className="text-lg font-medium mb-3">Додати нового адміністратора</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">Email</label>
+                  <label className="form-label">Логін</label>
                   <input
-                    type="email"
+                    type="text"
                     className="form-input"
-                    value={newAdminEmail}
-                    onChange={(e) => setNewAdminEmail(e.target.value)}
-                    placeholder="admin@example.com"
+                    value={newAdminLogin}
+                    onChange={(e) => setNewAdminLogin(e.target.value)}
+                    placeholder="admin_user"
+                    pattern="[a-zA-Z0-9_-]+"
+                    title="Логін може містити тільки букви, цифри, підкреслення та дефіси"
                   />
                 </div>
                 <div>
@@ -668,7 +583,7 @@ export default function AdminPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-100">
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Email</th>
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Логін</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Роль</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Статус пароля</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Створено</th>
@@ -676,27 +591,27 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white">
-                  {administrators.map((admin) => (
-                    <tr key={admin.id} className="hover:bg-gray-50">
+                  {administrators.map((adminItem) => (
+                    <tr key={adminItem.id} className="hover:bg-gray-50">
                       <td className="border border-gray-300 px-4 py-3 text-gray-900">
-                        {admin.email}
-                        {admin.user_id === user?.id && (
+                        {adminItem.login}
+                        {adminItem.id === admin?.adminId && (
                           <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Ви</span>
                         )}
                       </td>
                       <td className="border border-gray-300 px-4 py-3">
                         <select
                           className="form-select text-sm"
-                          value={admin.role}
-                          onChange={(e) => updateAdministratorRole(admin.id, e.target.value)}
-                          disabled={admin.user_id === user?.id}
+                          value={adminItem.role}
+                          onChange={(e) => updateAdministratorRole(adminItem.id, e.target.value)}
+                          disabled={adminItem.id === admin?.adminId}
                         >
                           <option value="admin">Адміністратор</option>
                           <option value="super_admin">Супер-адміністратор</option>
                         </select>
                       </td>
                       <td className="border border-gray-300 px-4 py-3">
-                        {admin.is_temp_password ? (
+                        {adminItem.is_temp_password ? (
                           <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
                             Тимчасовий
                           </span>
@@ -707,21 +622,21 @@ export default function AdminPage() {
                         )}
                       </td>
                       <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900">
-                        {new Date(admin.created_at).toLocaleDateString('uk-UA')}
+                        {new Date(adminItem.created_at).toLocaleDateString('uk-UA')}
                       </td>
                       <td className="border border-gray-300 px-4 py-3">
                         <div className="flex gap-2">
-                          {admin.user_id !== user?.id && (
+                          {adminItem.id !== admin?.adminId && (
                             <>
                               <button
-                                onClick={() => resetAdministratorPassword(admin.id)}
+                                onClick={() => resetAdministratorPassword(adminItem.id)}
                                 className="btn-secondary text-xs"
                                 title="Скинути пароль"
                               >
                                 🔄 Скинути пароль
                               </button>
                               <button
-                                onClick={() => deleteAdministrator(admin.id)}
+                                onClick={() => deleteAdministrator(adminItem.id)}
                                 className="btn-danger text-xs"
                               >
                                 Видалити
