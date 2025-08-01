@@ -106,7 +106,7 @@ export default function CreateAdminPage() {
           <p className="font-semibold">Інструкції:</p>
           <ol className="list-decimal list-inside space-y-1 mt-2">
             <li>Введіть логін та пароль для адміністратора</li>
-            <li>Натисніть "Створити адміністратора"</li>
+            <li>Натисніть &quot;Створити адміністратора&quot;</li>
             <li>Перейдіть на <a href="/admin" className="text-blue-600 hover:underline">/admin</a></li>
             <li>Увійдіть з створеними даними</li>
           </ol>

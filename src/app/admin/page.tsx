@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import PasswordChangeModal from '@/components/PasswordChangeModal'
 import LoginForm from '@/components/LoginForm'
+import Link from 'next/link'
 
 interface SafeCategory {
   id: string
@@ -334,12 +335,12 @@ export default function AdminPage() {
           >
             🔑 Змінити пароль
           </button>
-          <a 
+          <Link 
             href="/"
             className="btn-secondary text-sm"
           >
             ← Повернутися до калькулятора
-          </a>
+          </Link>
           <span className="text-gray-600">
             Вітаємо, {admin?.login}
             {hasTempPassword && (
