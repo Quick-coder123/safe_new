@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseClient } from '@/lib/supabase'
 
-// Temporary endpoint to delete administrators without authentication
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = createSupabaseClient()
