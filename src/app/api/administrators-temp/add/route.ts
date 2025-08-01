@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseClient } from '@/lib/supabase'
+import bcrypt from 'bcrypt'
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,17 +29,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Хешуємо пароль
+    const password_hash = await bcrypt.hash(password, 10)
+
     // Додаємо нового адміністратора
     const { data, error } = await supabase
       .from('administrators')
-      .insert([{ login, password }])
+      .insert([{ 
+        login, 
+        password_hash,
+        role: 'admin',
+        is_temp_password: true
+      }])
       .select()
       .single()
 
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json(
-        { error: 'Помилка бази даних' },
+        { error: 'Помилка бази даних', details: error.message },
         { status: 500 }
       )
     }
