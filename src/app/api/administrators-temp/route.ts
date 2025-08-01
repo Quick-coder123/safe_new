@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 
 export async function GET() {
   try {
+    const supabase = createSupabaseClient()
     console.log('🔍 Administrators TEMP API: Starting without auth...')
     
     // Перевірка environment variables

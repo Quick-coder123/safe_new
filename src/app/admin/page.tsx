@@ -220,16 +220,14 @@ export default function AdminPage() {
       // Генеруємо тимчасовий пароль
       const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
 
-      const response = await fetch('/api/create-admin', {
+      const response = await fetch('/api/administrators-temp/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           login: newAdminLogin,
-          password: tempPassword, // Передаємо plain пароль, хешування на сервері
-          role: newAdminRole,
-          is_temp_password: true
+          password: tempPassword,
         }),
       })
 
@@ -256,12 +254,11 @@ export default function AdminPage() {
     }
 
     try {
-      const response = await fetch('/api/administrators', {
+      const response = await fetch(`/api/administrators-temp/${administratorId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ administratorId }),
       })
 
       if (response.ok) {

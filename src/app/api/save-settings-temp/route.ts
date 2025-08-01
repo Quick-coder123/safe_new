@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createSupabaseClient()
     console.log('🔍 Save-settings TEMP API: Starting request...')
     
     // Перевірка environment variables

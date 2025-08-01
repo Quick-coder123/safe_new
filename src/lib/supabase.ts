@@ -18,6 +18,11 @@ if (typeof window === 'undefined' && supabaseUrl === 'https://placeholder.supaba
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
+// Експортуємо функцію для створення нового клієнта
+export function createSupabaseClient() {
+  return createClient(supabaseUrl, supabaseAnonKey)
+}
+
 export type Database = {
   public: {
     Tables: {
