@@ -3,11 +3,11 @@ import { createSupabaseClient } from '@/lib/supabase'
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createSupabaseClient()
-    const { id } = params
+    const { id } = await params
 
     // Перевіряємо чи не є це останнім адміністратором
     const { count } = await supabase
