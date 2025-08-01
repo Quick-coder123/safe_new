@@ -15,6 +15,7 @@ export default function CreateAdminPage() {
     setMessage('')
 
     try {
+      // Створюємо користувача
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -22,8 +23,25 @@ export default function CreateAdminPage() {
 
       if (error) {
         setMessage('Помилка: ' + error.message)
-      } else {
-        setMessage('Адміністратор успішно створений! Email: ' + email)
+        setLoading(false)
+        return
+      }
+
+      if (data.user) {
+        // Додаємо в таблицю адміністраторів як супер-адміністратора
+        const { error: insertError } = await supabase
+          .from('administrators')
+          .insert({
+            user_id: data.user.id,
+            email: email,
+            role: 'super_admin'
+          })
+
+        if (insertError) {
+          setMessage('Помилка додавання в таблицю адміністраторів: ' + insertError.message)
+        } else {
+          setMessage('Супер-адміністратор успішно створений! Email: ' + email)
+        }
       }
     } catch (error) {
       setMessage('Неочікувана помилка: ' + String(error))
@@ -36,7 +54,7 @@ export default function CreateAdminPage() {
     <div className="max-w-md mx-auto mt-8">
       <div className="calculator-card">
         <h1 className="text-2xl font-bold mb-6 text-center">
-          👤 Створення адміністратора
+          👤 Створення першого супер-адміністратора
         </h1>
         
         <form onSubmit={createAdmin} className="space-y-4">

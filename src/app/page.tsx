@@ -9,8 +9,11 @@ import {
   type CalculationInput,
   type CalculationResult
 } from '@/utils/calculator'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function HomePage() {
+  const { isAdmin } = useAuth()
+  
   const [formData, setFormData] = useState<CalculationInput>({
     category: 'I',
     contractType: 'new',
@@ -90,14 +93,15 @@ export default function HomePage() {
   const generatePaymentDetails = () => {
     if (!result) return
 
-    const updatedPurpose = `${paymentDetails.purpose}. Сума: ${result.totalCost.toFixed(2)} грн`
+    const paymentAmount = result.totalCost - result.insurance
+    const updatedPurpose = `${paymentDetails.purpose}. Сума: ${paymentAmount.toFixed(2)} грн`
     
     alert(`Реквізити для оплати:
 Отримувач: ${paymentDetails.recipient}
 Код ЄДРПОУ: ${paymentDetails.edrpou}
 IBAN: ${paymentDetails.iban}
 Призначення платежу: ${updatedPurpose}
-Сума: ${result.totalCost.toFixed(2)} грн`)
+Сума: ${paymentAmount.toFixed(2)} грн`)
   }
 
   const copyToClipboard = (text: string) => {
@@ -116,9 +120,19 @@ IBAN: ${paymentDetails.iban}
         <p style={{color: '#6b7280'}}>
           Розрахунок вартості оренди індивідуального сейфу з динамічними тарифами
         </p>
+        {!isAdmin && (
+          <div className="mt-3">
+            <a 
+              href="/admin" 
+              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+            >
+              🔐 Вхід для адміністратора
+            </a>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
         {/* Форма вводу */}
         <div className="calculator-card">
           <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>Вхідні дані</h2>
@@ -272,77 +286,6 @@ IBAN: ${paymentDetails.iban}
                 />
               </div>
             </div>
-
-            {/* Кнопка страхування */}
-            {formData.coverageType === 'insurance' && (
-              <button className="w-full btn-primary">
-                Оформити страхування ключа
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Налаштування реквізитів */}
-        <div className="calculator-card">
-          <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>⚙️ Налаштування реквізитів</h2>
-          
-          <div className="space-y-4">
-            <div className="form-group">
-              <label className="form-label">Отримувач платежу</label>
-              <input 
-                type="text"
-                className="form-input"
-                value={paymentDetails.recipient}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, recipient: e.target.value}))}
-                placeholder="Назва компанії-отримувача"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Код ЄДРПОУ</label>
-              <input 
-                type="text"
-                className="form-input"
-                value={paymentDetails.edrpou}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, edrpou: e.target.value}))}
-                placeholder="12345678"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">IBAN</label>
-              <input 
-                type="text"
-                className="form-input"
-                value={paymentDetails.iban}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, iban: e.target.value}))}
-                placeholder="UA123456789012345678901234567"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Призначення платежу</label>
-              <textarea 
-                className="form-input"
-                rows={2}
-                value={paymentDetails.purpose}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, purpose: e.target.value}))}
-                placeholder="Опис призначення платежу"
-              />
-            </div>
-            
-            {formData.coverageType === 'insurance' && (
-              <div className="form-group">
-                <label className="form-label">Посилання для оплати страхування ключа</label>
-                <input 
-                  type="url"
-                  className="form-input"
-                  value={insurancePaymentUrl}
-                  onChange={(e) => setInsurancePaymentUrl(e.target.value)}
-                  placeholder="https://..."
-                />
-              </div>
-            )}
           </div>
         </div>
 
@@ -422,8 +365,119 @@ IBAN: ${paymentDetails.iban}
                 </div>
               </div>
 
-              {/* Реквізити для оплати */}
-              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+              <div className="flex space-x-2 pt-2">
+                <button 
+                  className="btn-primary text-sm w-full"
+                  onClick={() => copyToClipboard(`
+Розрахунок вартості оренди сейфу:
+
+Категорія: ${SAFE_CATEGORIES.find(cat => cat.id === formData.category)?.name || formData.category}
+Тип договору: ${formData.contractType === 'new' ? 'Новий' : 'Пролонгація'}
+Тип покриття: ${formData.coverageType === 'insurance' ? 'Страхування ключа' : 'Грошове забезпечення'}
+
+Дата початку: ${formData.startDate.toLocaleDateString('uk-UA')}
+Дата закінчення: ${formData.endDate.toLocaleDateString('uk-UA')}
+Термін оренди: ${result.days} днів
+Тариф за день: ${result.safeRate.toFixed(2)} грн
+
+Деталі розрахунку:
+- Вартість сейфу: ${result.safeCost.toFixed(2)} грн${result.insurance > 0 ? `
+- Страхування ключа: ${result.insurance.toFixed(2)} грн` : ''}${result.guarantee > 0 ? `
+- Грошове забезпечення: ${result.guarantee.toFixed(2)} грн` : ''}${result.trustDocumentsCost > 0 ? `
+- Довіреності: ${result.trustDocumentsCost.toFixed(2)} грн` : ''}${result.packagesCost > 0 ? `
+- Пакети: ${result.packagesCost.toFixed(2)} грн` : ''}${result.penalty > 0 ? `
+- Пеня: ${result.penalty.toFixed(2)} грн` : ''}
+
+ПІДСУМКОВА СУМА: ${result.totalCost.toFixed(2)} грн
+                  `.trim())}
+                >
+                  📋 Скопіювати розрахунок
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Налаштування реквізитів - тільки для адміністраторів */}
+        {isAdmin && (
+          <div className="calculator-card">
+            <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>⚙️ Налаштування реквізитів</h2>
+          
+          <div className="space-y-4">
+            <div className="form-group">
+              <label className="form-label">Отримувач платежу</label>
+              <input 
+                type="text"
+                className="form-input"
+                value={paymentDetails.recipient}
+                onChange={(e) => setPaymentDetails(prev => ({...prev, recipient: e.target.value}))}
+                placeholder="Назва компанії-отримувача"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Код ЄДРПОУ</label>
+              <input 
+                type="text"
+                className="form-input"
+                value={paymentDetails.edrpou}
+                onChange={(e) => setPaymentDetails(prev => ({...prev, edrpou: e.target.value}))}
+                placeholder="12345678"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">IBAN</label>
+              <input 
+                type="text"
+                className="form-input"
+                value={paymentDetails.iban}
+                onChange={(e) => setPaymentDetails(prev => ({...prev, iban: e.target.value}))}
+                placeholder="UA123456789012345678901234567"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label">Призначення платежу</label>
+              <textarea 
+                className="form-input"
+                rows={2}
+                value={paymentDetails.purpose}
+                onChange={(e) => setPaymentDetails(prev => ({...prev, purpose: e.target.value}))}
+                placeholder="Опис призначення платежу"
+              />
+            </div>
+            
+            {formData.coverageType === 'insurance' && (
+              <div className="form-group">
+                <label className="form-label">Посилання для оплати страхування ключа</label>
+                <input 
+                  type="url"
+                  className="form-input"
+                  value={insurancePaymentUrl}
+                  onChange={(e) => setInsurancePaymentUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            )}
+
+            {/* Кнопка оформлення страхування */}
+            {formData.coverageType === 'insurance' && (
+              <div className="mt-4">
+                <a 
+                  href="https://ars.aiwa.in.ua/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full btn-primary inline-flex items-center justify-center"
+                >
+                  🛡️ Оформити страхування ключа
+                </a>
+              </div>
+            )}
+
+            {/* Реквізити для оплати */}
+            {result && (
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3 mt-6">
                 <h3 className="font-semibold" style={{color: '#1e40af'}}>📋 Реквізити для оплати</h3>
                 <div className="space-y-2 text-sm">
                   <div>
@@ -444,7 +498,14 @@ IBAN: ${paymentDetails.iban}
                   </div>
                   <div>
                     <span style={{color: '#1d4ed8'}}>Сума:</span>
-                    <span className="ml-2 font-bold" style={{color: '#1f2937'}}>{result.totalCost.toFixed(2)} грн</span>
+                    <span className="ml-2 font-bold" style={{color: '#1f2937'}}>
+                      {(result.totalCost - result.insurance).toFixed(2)} грн
+                    </span>
+                    {result.insurance > 0 && (
+                      <div className="text-xs mt-1" style={{color: '#6b7280'}}>
+                        * Страхування ключа ({result.insurance.toFixed(2)} грн) оплачується окремо
+                      </div>
+                    )}
                   </div>
                   
                   {formData.coverageType === 'insurance' && insurancePaymentUrl && (
@@ -468,28 +529,28 @@ IBAN: ${paymentDetails.iban}
                 
                 <div className="flex space-x-2 pt-2">
                   <button 
-                    className="btn-primary text-sm"
-                    onClick={generatePaymentDetails}
-                  >
-                    Згенерувати реквізити
-                  </button>
-                  <button 
-                    className="btn-secondary text-sm"
+                    className="btn-primary text-sm w-full"
                     onClick={() => copyToClipboard(`
+Реквізити для оплати:
+
 Отримувач: ${paymentDetails.recipient}
 Код ЄДРПОУ: ${paymentDetails.edrpou}
 IBAN: ${paymentDetails.iban}
 Призначення: ${paymentDetails.purpose}
-Сума: ${result.totalCost.toFixed(2)} грн
+Сума: ${(result.totalCost - result.insurance).toFixed(2)} грн${result.insurance > 0 ? `
+* Страхування ключа (${result.insurance.toFixed(2)} грн) оплачується окремо` : ''}${formData.coverageType === 'insurance' && insurancePaymentUrl ? `
+
+Посилання для оплати страхування: ${insurancePaymentUrl}` : ''}
                     `.trim())}
                   >
-                    Скопіювати
+                    📋 Скопіювати реквізити
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+        )}
       </div>
 
       {/* Інформація про тарифи */}

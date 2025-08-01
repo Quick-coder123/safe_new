@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
+import PasswordChangeModal from '@/components/PasswordChangeModal'
 import { type User } from '@supabase/supabase-js'
 
 interface SafeCategory {
@@ -36,7 +39,19 @@ interface ChangeLog {
   created_at: string
 }
 
+interface Administrator {
+  id: number
+  user_id: string
+  email: string
+  role: 'admin' | 'super_admin'
+  is_temp_password: boolean
+  created_at: string
+  created_by: string
+}
+
 export default function AdminPage() {
+  const router = useRouter()
+  const { isSuperAdmin, hasTempPassword } = useAuth()
   const [user, setUser] = useState<User | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -51,6 +66,14 @@ export default function AdminPage() {
     guarantee_amount: '5000',
   })
   const [changeLogs, setChangeLogs] = useState<ChangeLog[]>([])
+  const [administrators, setAdministrators] = useState<Administrator[]>([])
+  
+  // Стан для форми додавання адміністратора
+  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [newAdminRole, setNewAdminRole] = useState<'admin' | 'super_admin'>('admin')
+  
+  // Стан для модального вікна зміни пароля
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -59,8 +82,15 @@ export default function AdminPage() {
   useEffect(() => {
     if (user) {
       loadData()
+      if (isSuperAdmin) {
+        loadAdministrators()
+      }
+      // Показуємо модальне вікно зміни пароля, якщо пароль тимчасовий
+      if (hasTempPassword) {
+        setShowPasswordModal(true)
+      }
     }
-  }, [user])
+  }, [user, isSuperAdmin, hasTempPassword])
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -88,6 +118,7 @@ export default function AdminPage() {
   const signOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    router.push('/')
   }
 
   const loadData = async () => {
@@ -179,6 +210,158 @@ export default function AdminPage() {
     ))
   }
 
+  const loadAdministrators = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/administrators', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const { administrators } = await response.json()
+        setAdministrators(administrators)
+      }
+    } catch (error) {
+      console.error('Error loading administrators:', error)
+    }
+  }
+
+  const createAdministrator = async () => {
+    if (!newAdminEmail.trim()) {
+      alert('Введіть email адміністратора')
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/administrators', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: newAdminEmail,
+          role: newAdminRole,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.tempPassword) {
+          alert(`Адміністратора успішно додано!\n\nEmail: ${newAdminEmail}\nТимчасовий пароль: ${result.tempPassword}\n\nЗбережіть цей пароль! Адміністратор повинен змінити його при першому вході.`)
+        } else {
+          alert('Адміністратора успішно додано!')
+        }
+        setNewAdminEmail('')
+        setNewAdminRole('admin')
+        loadAdministrators()
+      } else {
+        const { error } = await response.json()
+        alert(`Помилка: ${error}`)
+      }
+    } catch (error) {
+      console.error('Error creating administrator:', error)
+      alert('Помилка створення адміністратора')
+    }
+  }
+
+  const deleteAdministrator = async (administratorId: number) => {
+    if (!confirm('Ви впевнені, що хочете видалити цього адміністратора?')) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/administrators', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ administratorId }),
+      })
+
+      if (response.ok) {
+        alert('Адміністратора успішно видалено!')
+        loadAdministrators()
+      } else {
+        const { error } = await response.json()
+        alert(`Помилка: ${error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting administrator:', error)
+      alert('Помилка видалення адміністратора')
+    }
+  }
+
+  const updateAdministratorRole = async (administratorId: number, role: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch(`/api/administrators/${administratorId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ administratorId, role }),
+      })
+
+      if (response.ok) {
+        alert('Роль адміністратора успішно оновлено!')
+        loadAdministrators()
+      } else {
+        const { error } = await response.json()
+        alert(`Помилка: ${error}`)
+      }
+    } catch (error) {
+      console.error('Error updating administrator role:', error)
+      alert('Помилка оновлення ролі')
+    }
+  }
+
+  const resetAdministratorPassword = async (administratorId: number) => {
+    if (!confirm('Ви впевнені, що хочете скинути пароль цього адміністратора?')) {
+      return
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch('/api/reset-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ administratorId }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert(result.message || 'Пароль успішно скинуто!')
+        loadAdministrators()
+      } else {
+        const { error } = await response.json()
+        alert(`Помилка: ${error}`)
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error)
+      alert('Помилка скидання пароля')
+    }
+  }
+
   const updateSetting = (key: string, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }))
   }
@@ -232,13 +415,26 @@ export default function AdminPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">🛠️ Адмін-панель</h1>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setShowPasswordModal(true)}
+            className="btn-secondary text-sm"
+          >
+            🔑 Змінити пароль
+          </button>
           <a 
             href="/"
             className="btn-secondary text-sm"
           >
             ← Повернутися до калькулятора
           </a>
-          <span className="text-gray-600">Вітаємо, {user.email}</span>
+          <span className="text-gray-600">
+            Вітаємо, {user.email}
+            {hasTempPassword && (
+              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                Тимчасовий пароль
+              </span>
+            )}
+          </span>
           <button onClick={signOut} className="btn-secondary">
             Вийти
           </button>
@@ -252,6 +448,7 @@ export default function AdminPage() {
             { id: 'categories', name: 'Категорії сейфів' },
             { id: 'insurance', name: 'Страхування' },
             { id: 'settings', name: 'Налаштування' },
+            ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори' }] : []),
             { id: 'logs', name: 'Журнал змін' },
           ].map((tab) => (
             <button
@@ -422,6 +619,125 @@ export default function AdminPage() {
           </div>
         )}
 
+        {activeTab === 'administrators' && isSuperAdmin && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Управління адміністраторами</h2>
+            
+            {/* Форма додавання нового адміністратора */}
+            <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-medium mb-3">Додати нового адміністратора</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="form-label">Email</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    placeholder="admin@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Роль</label>
+                  <select
+                    className="form-select"
+                    value={newAdminRole}
+                    onChange={(e) => setNewAdminRole(e.target.value as 'admin' | 'super_admin')}
+                  >
+                    <option value="admin">Адміністратор</option>
+                    <option value="super_admin">Супер-адміністратор</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={createAdministrator}
+                    className="btn-primary w-full"
+                  >
+                    Додати адміністратора
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 text-sm text-gray-600">
+                <p><strong>Адміністратор:</strong> може змінювати тарифи та бачити блок налаштувань реквізитів</p>
+                <p><strong>Супер-адміністратор:</strong> має всі права адміністратора + може управляти іншими адміністраторами</p>
+              </div>
+            </div>
+
+            {/* Список адміністраторів */}
+            <div className="overflow-x-auto bg-white rounded-lg shadow">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Email</th>
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Роль</th>
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Статус пароля</th>
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Створено</th>
+                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Дії</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white">
+                  {administrators.map((admin) => (
+                    <tr key={admin.id} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-3 text-gray-900">
+                        {admin.email}
+                        {admin.user_id === user?.id && (
+                          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Ви</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3">
+                        <select
+                          className="form-select text-sm"
+                          value={admin.role}
+                          onChange={(e) => updateAdministratorRole(admin.id, e.target.value)}
+                          disabled={admin.user_id === user?.id}
+                        >
+                          <option value="admin">Адміністратор</option>
+                          <option value="super_admin">Супер-адміністратор</option>
+                        </select>
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3">
+                        {admin.is_temp_password ? (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                            Тимчасовий
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                            Власний
+                          </span>
+                        )}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900">
+                        {new Date(admin.created_at).toLocaleDateString('uk-UA')}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3">
+                        <div className="flex gap-2">
+                          {admin.user_id !== user?.id && (
+                            <>
+                              <button
+                                onClick={() => resetAdministratorPassword(admin.id)}
+                                className="btn-secondary text-xs"
+                                title="Скинути пароль"
+                              >
+                                🔄 Скинути пароль
+                              </button>
+                              <button
+                                onClick={() => deleteAdministrator(admin.id)}
+                                className="btn-danger text-xs"
+                              >
+                                Видалити
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'logs' && (
           <div>
             <h2 className="text-xl font-semibold mb-4">Журнал змін</h2>
@@ -468,7 +784,7 @@ export default function AdminPage() {
         )}
 
         {/* Кнопка збереження */}
-        {activeTab !== 'logs' && (
+        {activeTab !== 'logs' && activeTab !== 'administrators' && (
           <div className="mt-6">
             <button onClick={saveData} className="btn-primary">
               Зберегти зміни
@@ -476,6 +792,13 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Модальне вікно зміни пароля */}
+      <PasswordChangeModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        isRequired={hasTempPassword}
+      />
     </div>
   )
 }
