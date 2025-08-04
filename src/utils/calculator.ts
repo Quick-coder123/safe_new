@@ -115,8 +115,8 @@ export function calculateDays(startDate: Date, endDate: Date): number {
 }
 
 // Функція для визначення тарифу на основі категорії та терміну
-export function getSafeRate(categoryId: string, days: number): number {
-  const category = SAFE_CATEGORIES.find(cat => cat.id === categoryId);
+export function getSafeRate(categoryId: string, days: number, categories: SafeCategory[] = SAFE_CATEGORIES): number {
+  const category = categories.find(cat => cat.id === categoryId);
   if (!category) return 0;
 
   if (days <= 30) return category.rates.up_to_30;
@@ -128,8 +128,8 @@ export function getSafeRate(categoryId: string, days: number): number {
 }
 
 // Функція для обчислення вартості страхування
-export function getInsurancePrice(days: number): number {
-  const rate = INSURANCE_RATES.find(
+export function getInsurancePrice(days: number, insuranceRates: InsuranceRate[] = INSURANCE_RATES): number {
+  const rate = insuranceRates.find(
     rate => days >= rate.min_days && days <= rate.max_days
   );
   return rate ? rate.price : 0;
@@ -142,14 +142,18 @@ export function isWeekend(date: Date): boolean {
 }
 
 // Основна функція калькуляції
-export function calculateRental(input: CalculationInput): CalculationResult {
+export function calculateRental(input: CalculationInput, config?: {
+  categories: SafeCategory[];
+  insuranceRates: InsuranceRate[];
+  settings: any;
+}): CalculationResult {
   const days = calculateDays(input.startDate, input.endDate);
-  const safeRate = getSafeRate(input.category, days);
+  const safeRate = getSafeRate(input.category, days, config?.categories || SAFE_CATEGORIES);
   const safeCost = safeRate * days;
   
   // Страхування ключа (тільки для страхування)
   const insurance = input.coverageType === 'insurance' 
-    ? getInsurancePrice(days) 
+    ? getInsurancePrice(days, config?.insuranceRates || INSURANCE_RATES) 
     : 0;
   
   // Грошове забезпечення (тільки для нових договорів з грошовим забезпеченням)

@@ -6,14 +6,15 @@ import {
   calculateRental, 
   formatDateForInput, 
   parseDateFromInput,
-  SAFE_CATEGORIES,
   type CalculationInput,
   type CalculationResult
 } from '@/utils/calculator'
 import { useAuth } from '@/hooks/useAuth'
+import { useConfig } from '@/hooks/useConfig'
 
 export default function HomePage() {
   const { isAdmin } = useAuth()
+  const { config, loading: configLoading, error: configError } = useConfig()
   
   const [formData, setFormData] = useState<CalculationInput>({
     category: 'I',
@@ -39,14 +40,16 @@ export default function HomePage() {
 
   // Перерахунок при зміні даних
   useEffect(() => {
+    if (!config) return // Чекаємо поки config завантажиться
+    
     try {
-      const calculationResult = calculateRental(formData)
+      const calculationResult = calculateRental(formData, config)
       setResult(calculationResult)
     } catch (error) {
       console.error('Помилка розрахунку:', error)
       setResult(null)
     }
-  }, [formData])
+  }, [formData, config])
 
   const handleInputChange = (field: keyof CalculationInput, value: any) => {
     setFormData(prev => ({
@@ -111,6 +114,30 @@ IBAN: ${paymentDetails.iban}
     })
   }
 
+  // Показуємо індикатор завантаження поки конфігурація не завантажена
+  if (configLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Завантаження конфігурації...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Показуємо помилку якщо конфігурація не завантажилась
+  if (configError) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Помилка завантаження конфігурації: {configError}</p>
+          <p className="text-gray-600">Використовуються базові налаштування</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <ConfigurationError />
@@ -149,11 +176,11 @@ IBAN: ${paymentDetails.iban}
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
               >
-                {SAFE_CATEGORIES.map(category => (
+                {config?.categories?.map(category => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
-                ))}
+                )) || []}
               </select>
             </div>
 
@@ -374,7 +401,7 @@ IBAN: ${paymentDetails.iban}
                   onClick={() => copyToClipboard(`
 Розрахунок вартості оренди сейфу:
 
-Категорія: ${SAFE_CATEGORIES.find(cat => cat.id === formData.category)?.name || formData.category}
+Категорія: ${config?.categories?.find(cat => cat.id === formData.category)?.name || formData.category}
 Тип договору: ${formData.contractType === 'new' ? 'Новий' : 'Пролонгація'}
 Тип покриття: ${formData.coverageType === 'insurance' ? 'Страхування ключа' : 'Грошове забезпечення'}
 
@@ -582,7 +609,7 @@ IBAN: ${paymentDetails.iban}
                   </tr>
                 </thead>
                 <tbody>
-                  {SAFE_CATEGORIES.map(category => (
+                  {config?.categories?.map(category => (
                     <tr key={category.id} className={formData.category === category.id ? 'highlight' : ''}>
                       <td style={{color: '#1f2937', fontWeight: '600'}}>{category.name}</td>
                       <td style={{color: '#1f2937', textAlign: 'center'}}>{category.rates.up_to_30.toFixed(2)}</td>
@@ -590,7 +617,7 @@ IBAN: ${paymentDetails.iban}
                       <td style={{color: '#1f2937', textAlign: 'center'}}>{category.rates.from_91_to_180.toFixed(2)}</td>
                       <td style={{color: '#1f2937', textAlign: 'center'}}>{category.rates.from_181_to_365.toFixed(2)}</td>
                     </tr>
-                  ))}
+                  )) || []}
                 </tbody>
               </table>
             </div>

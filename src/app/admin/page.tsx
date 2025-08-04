@@ -108,7 +108,7 @@ export default function AdminPage() {
 
   const loadData = async () => {
     try {
-      const response = await fetch('/api/get-settings')
+      const response = await fetch('/api/get-settings-temp')
       const data = await response.json()
       
       console.log('� Loaded data from get-settings:', data)
