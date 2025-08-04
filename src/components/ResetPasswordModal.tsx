@@ -36,7 +36,7 @@ export default function ResetPasswordModal({
         <div className="p-6">
           <div className="space-y-4">
             <p className="text-gray-700 text-sm">
-              Пароль для адміністратора <strong>"{adminLogin}"</strong> успішно скинуто.
+              Пароль для адміністратора <strong>&ldquo;{adminLogin}&rdquo;</strong> успішно скинуто.
             </p>
 
             {/* New Password */}
@@ -70,7 +70,7 @@ export default function ResetPasswordModal({
                     Важливо!
                   </p>
                   <p className="text-sm text-yellow-700 mt-1">
-                    Обов'язково збережіть цей пароль і передайте його адміністратору. 
+                    Обов&apos;язково збережіть цей пароль і передайте його адміністратору. 
                     Адміністратор повинен змінити його при першому вході в систему.
                   </p>
                 </div>
@@ -84,7 +84,7 @@ export default function ResetPasswordModal({
               </h4>
               <ol className="text-sm text-blue-700 space-y-1">
                 <li>1. Скопіюйте пароль вище</li>
-                <li>2. Передайте його адміністратору "{adminLogin}"</li>
+                <li>2. Передайте його адміністратору &ldquo;{adminLogin}&rdquo;</li>
                 <li>3. Адміністратор увійде з цим паролем</li>
                 <li>4. Система запропонує змінити пароль при першому вході</li>
               </ol>
