@@ -20,6 +20,9 @@ export interface InsuranceRate {
 export interface Settings {
   min_rental_days: string;
   max_rental_days: string;
+  trust_document_price: string;
+  package_price: string;
+  guarantee_amount: string;
   [key: string]: string;
 }
 
@@ -93,7 +96,10 @@ export function useConfig() {
         ],
         settings: {
           min_rental_days: '1',
-          max_rental_days: '365'
+          max_rental_days: '365',
+          trust_document_price: '300',
+          package_price: '30',
+          guarantee_amount: '3000'
         }
       })
     } finally {

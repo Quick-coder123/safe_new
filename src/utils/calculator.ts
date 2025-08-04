@@ -40,73 +40,6 @@ export interface CalculationResult {
   isWeekend: boolean;
 }
 
-// Тарифи на сейфи (грн/день, з ПДВ)
-export const SAFE_CATEGORIES: SafeCategory[] = [
-  {
-    id: 'I',
-    name: 'І категорія',
-    rates: {
-      up_to_30: 39.00,
-      from_31_to_90: 25.00,
-      from_91_to_180: 22.00,
-      from_181_to_365: 20.00,
-    },
-  },
-  {
-    id: 'II',
-    name: 'ІІ категорія',
-    rates: {
-      up_to_30: 51.00,
-      from_31_to_90: 26.00,
-      from_91_to_180: 24.00,
-      from_181_to_365: 22.00,
-    },
-  },
-  {
-    id: 'III',
-    name: 'ІІІ категорія',
-    rates: {
-      up_to_30: 63.00,
-      from_31_to_90: 28.00,
-      from_91_to_180: 26.00,
-      from_181_to_365: 24.00,
-    },
-  },
-  {
-    id: 'IV',
-    name: 'ІV категорія',
-    rates: {
-      up_to_30: 63.00,
-      from_31_to_90: 35.00,
-      from_91_to_180: 33.00,
-      from_181_to_365: 29.00,
-    },
-  },
-  {
-    id: 'V',
-    name: 'V категорія',
-    rates: {
-      up_to_30: 75.00,
-      from_31_to_90: 40.00,
-      from_91_to_180: 38.00,
-      from_181_to_365: 35.00,
-    },
-  },
-];
-
-// Страхування ключа (грн, без ПДВ)
-export const INSURANCE_RATES: InsuranceRate[] = [
-  { min_days: 1, max_days: 90, price: 285.00 },
-  { min_days: 91, max_days: 180, price: 370.00 },
-  { min_days: 181, max_days: 270, price: 430.00 },
-  { min_days: 271, max_days: 365, price: 500.00 },
-];
-
-// Константи
-export const TRUST_DOCUMENT_PRICE = 300; // грн за кожну довіреність
-export const PACKAGE_PRICE = 50; // грн за пакет (може бути динамічним)
-export const GUARANTEE_AMOUNT = 5000; // грн грошове забезпечення
-
 // Функція для обчислення кількості днів
 export function calculateDays(startDate: Date, endDate: Date): number {
   const diffTime = endDate.getTime() - startDate.getTime();
@@ -115,7 +48,7 @@ export function calculateDays(startDate: Date, endDate: Date): number {
 }
 
 // Функція для визначення тарифу на основі категорії та терміну
-export function getSafeRate(categoryId: string, days: number, categories: SafeCategory[] = SAFE_CATEGORIES): number {
+export function getSafeRate(categoryId: string, days: number, categories: SafeCategory[]): number {
   const category = categories.find(cat => cat.id === categoryId);
   if (!category) return 0;
 
@@ -128,7 +61,7 @@ export function getSafeRate(categoryId: string, days: number, categories: SafeCa
 }
 
 // Функція для обчислення вартості страхування
-export function getInsurancePrice(days: number, insuranceRates: InsuranceRate[] = INSURANCE_RATES): number {
+export function getInsurancePrice(days: number, insuranceRates: InsuranceRate[]): number {
   const rate = insuranceRates.find(
     rate => days >= rate.min_days && days <= rate.max_days
   );
@@ -142,27 +75,36 @@ export function isWeekend(date: Date): boolean {
 }
 
 // Основна функція калькуляції
-export function calculateRental(input: CalculationInput, config?: {
+export function calculateRental(input: CalculationInput, config: {
   categories: SafeCategory[];
   insuranceRates: InsuranceRate[];
-  settings: any;
+  settings: {
+    trust_document_price: string;
+    package_price: string;
+    guarantee_amount: string;
+    [key: string]: string;
+  };
 }): CalculationResult {
   const days = calculateDays(input.startDate, input.endDate);
-  const safeRate = getSafeRate(input.category, days, config?.categories || SAFE_CATEGORIES);
+  const safeRate = getSafeRate(input.category, days, config.categories);
   const safeCost = safeRate * days;
   
   // Страхування ключа (тільки для страхування)
   const insurance = input.coverageType === 'insurance' 
-    ? getInsurancePrice(days, config?.insuranceRates || INSURANCE_RATES) 
+    ? getInsurancePrice(days, config.insuranceRates) 
     : 0;
   
   // Грошове забезпечення (тільки для нових договорів з грошовим забезпеченням)
+  const guaranteeAmount = parseFloat(config.settings.guarantee_amount) || 0;
   const guarantee = input.contractType === 'new' && input.coverageType === 'guarantee'
-    ? GUARANTEE_AMOUNT
+    ? guaranteeAmount
     : 0;
   
-  const trustDocumentsCost = input.trustDocuments * TRUST_DOCUMENT_PRICE;
-  const packagesCost = input.packages * PACKAGE_PRICE;
+  const trustDocumentPrice = parseFloat(config.settings.trust_document_price) || 0;
+  const packagePrice = parseFloat(config.settings.package_price) || 0;
+  
+  const trustDocumentsCost = input.trustDocuments * trustDocumentPrice;
+  const packagesCost = input.packages * packagePrice;
   
   const totalCost = safeCost + insurance + guarantee + trustDocumentsCost + packagesCost + input.penalty;
   
@@ -192,6 +134,14 @@ export function formatDate(date: Date): string {
 // Форматування дати для input[type="date"]
 export function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0];
+}
+
+// Форматування дати для відображення (День/Місяць/Рік)
+export function formatDateForDisplay(date: Date): string {
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 // Парсинг дати з input[type="date"]

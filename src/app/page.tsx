@@ -5,6 +5,7 @@ import ConfigurationError from '@/components/ConfigurationError'
 import { 
   calculateRental, 
   formatDateForInput, 
+  formatDateForDisplay,
   parseDateFromInput,
   type CalculationInput,
   type CalculationResult
@@ -21,13 +22,13 @@ export default function HomePage() {
     contractType: 'new',
     coverageType: 'insurance',
     startDate: new Date(),
-    endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 днів
+    endDate: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000), // +31 день
     penalty: 0,
     trustDocuments: 0,
     packages: 0,
   })
 
-  const [termDays, setTermDays] = useState<number>(30)
+  const [termDays, setTermDays] = useState<number>(31)
 
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [paymentDetails, setPaymentDetails] = useState({
@@ -236,7 +237,7 @@ IBAN: ${paymentDetails.iban}
                 
                 {/* Швидкий вибір терміну */}
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {[7, 14, 30, 60, 91, 181, 365].map(days => (
+                  {[7, 14, 31, 60, 91, 181, 365].map(days => (
                     <button
                       key={days}
                       type="button"
@@ -249,7 +250,7 @@ IBAN: ${paymentDetails.iban}
                     >
                       {days === 7 ? '1 тиж' : 
                        days === 14 ? '2 тиж' :
-                       days === 30 ? '1 міс' :
+                       days === 31 ? '1 міс' :
                        days === 60 ? '2 міс' :
                        days === 91 ? '3 міс' :
                        days === 181 ? '6 міс' :
@@ -259,7 +260,7 @@ IBAN: ${paymentDetails.iban}
                 </div>
                 
                 <p className="text-sm mt-1" style={{color: '#6b7280'}}>
-                  Кінцева дата: {formatDateForInput(formData.endDate)} 
+                  Кінцева дата: {formatDateForDisplay(formData.endDate)} 
                   {result && (
                     <span className="ml-2 font-medium" style={{color: '#2563eb'}}>
                       (фактично {result.days} днів)
@@ -591,7 +592,7 @@ IBAN: ${paymentDetails.iban}
 
       {/* Інформація про тарифи */}
       <div className="calculator-card">
-        <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>📊 Тарифні таблиці</h2>
+        <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>📊 Тарифи</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Тарифи на сейфи */}
@@ -627,22 +628,16 @@ IBAN: ${paymentDetails.iban}
           <div>
             <h3 className="font-semibold mb-3" style={{color: '#1f2937'}}>Страхування ключа (грн, без ПДВ)</h3>
             <div className="space-y-2">
-              <div className="flex justify-between p-2 bg-gray-50 rounded">
-                <span style={{color: '#1f2937'}}>до 90 днів</span>
-                <span className="font-medium" style={{color: '#1f2937'}}>285.00 грн</span>
-              </div>
-              <div className="flex justify-between p-2 bg-gray-50 rounded">
-                <span style={{color: '#1f2937'}}>91-180 днів</span>
-                <span className="font-medium" style={{color: '#1f2937'}}>370.00 грн</span>
-              </div>
-              <div className="flex justify-between p-2 bg-gray-50 rounded">
-                <span style={{color: '#1f2937'}}>181-270 днів</span>
-                <span className="font-medium" style={{color: '#1f2937'}}>430.00 грн</span>
-              </div>
-              <div className="flex justify-between p-2 bg-gray-50 rounded">
-                <span style={{color: '#1f2937'}}>271-365 днів</span>
-                <span className="font-medium" style={{color: '#1f2937'}}>500.00 грн</span>
-              </div>
+              {config?.insuranceRates?.map((rate, index) => (
+                <div key={index} className="flex justify-between p-2 bg-gray-50 rounded">
+                  <span style={{color: '#1f2937'}}>
+                    {rate.min_days}-{rate.max_days} днів
+                  </span>
+                  <span className="font-medium" style={{color: '#1f2937'}}>
+                    {rate.price.toFixed(2)} грн
+                  </span>
+                </div>
+              )) || []}
             </div>
 
             <div className="mt-4">
@@ -650,18 +645,24 @@ IBAN: ${paymentDetails.iban}
               <div className="space-y-2">
                 <div className="flex justify-between p-2 bg-gray-50 rounded">
                   <span style={{color: '#1f2937'}}>Довіреність</span>
-                  <span className="font-medium" style={{color: '#1f2937'}}>300.00 грн</span>
+                  <span className="font-medium" style={{color: '#1f2937'}}>
+                    {config?.settings?.trust_document_price || '300'}.00 грн
+                  </span>
                 </div>
                 <div className="flex justify-between p-2 bg-gray-50 rounded">
                   <span style={{color: '#1f2937'}}>Пакет</span>
-                  <span className="font-medium" style={{color: '#1f2937'}}>50.00 грн</span>
+                  <span className="font-medium" style={{color: '#1f2937'}}>
+                    {config?.settings?.package_price || '30'}.00 грн
+                  </span>
                 </div>
                 <div className="flex justify-between p-2 bg-blue-50 rounded border border-blue-200">
                   <div>
                     <span style={{color: '#1f2937'}}>Грошове забезпечення</span>
                     <div className="text-xs text-gray-600">Для нових договорів (альтернатива страхуванню)</div>
                   </div>
-                  <span className="font-medium" style={{color: '#1f2937'}}>5000.00 грн</span>
+                  <span className="font-medium" style={{color: '#1f2937'}}>
+                    {config?.settings?.guarantee_amount || '3000'}.00 грн
+                  </span>
                 </div>
               </div>
             </div>
