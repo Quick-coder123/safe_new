@@ -46,7 +46,26 @@ export function useConfig() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
-      const data = await response.json()
+      const rawData = await response.json()
+      
+      // Конвертуємо плоску структуру в вкладену для categories
+      const convertedCategories = rawData.categories?.map((cat: any) => ({
+        id: cat.id,
+        name: cat.name,
+        rates: {
+          up_to_30: cat.rate_up_to_30,
+          from_31_to_90: cat.rate_31_to_90,
+          from_91_to_180: cat.rate_91_to_180,
+          from_181_to_365: cat.rate_181_to_365,
+        }
+      })) || []
+      
+      const data = {
+        categories: convertedCategories,
+        insuranceRates: rawData.insuranceRates || [],
+        settings: rawData.settings || {}
+      }
+      
       setConfig(data)
     } catch (error) {
       console.error('Error loading config:', error)
