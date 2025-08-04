@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import PasswordChangeModal from '@/components/PasswordChangeModal'
 import LoginForm from '@/components/LoginForm'
+import { useConfirmDialog } from '@/components/ConfirmDialog'
+import { useNotification } from '@/components/Notification'
+import CredentialsModal from '@/components/CredentialsModal'
 import Link from 'next/link'
 
 interface SafeCategory {
@@ -74,6 +77,10 @@ export default function AdminPage() {
   // Стан для модального вікна з новими credentials
   const [showCredentialsModal, setShowCredentialsModal] = useState(false)
   const [newCredentials, setNewCredentials] = useState({ login: '', password: '' })
+
+  // Хуки для красивих діалогів
+  const { showConfirm, ConfirmDialogComponent } = useConfirmDialog()
+  const { showNotification, NotificationComponent } = useNotification()
 
   useEffect(() => {
     if (admin) {
@@ -169,15 +176,27 @@ export default function AdminPage() {
       console.log('� Save response:', data)
 
       if (response.ok) {
-        alert('Дані успішно збережені!')
+        showNotification({
+          title: 'Успіх!',
+          message: 'Дані успішно збережені!',
+          type: 'success'
+        })
         loadData() // Перезавантажуємо дані
       } else {
-        alert('Помилка збереження даних: ' + (data.error || 'Невідома помилка'))
+        showNotification({
+          title: 'Помилка збереження',
+          message: data.error || 'Невідома помилка',
+          type: 'error'
+        })
         console.error('Save error details:', data)
       }
     } catch (error) {
       console.error('Error saving data:', error)
-      alert('Помилка збереження даних')
+      showNotification({
+        title: 'Помилка збереження',
+        message: 'Не вдалося зберегти дані',
+        type: 'error'
+      })
     }
   }
 
@@ -212,7 +231,11 @@ export default function AdminPage() {
 
   const createAdministrator = async () => {
     if (!newAdminLogin.trim()) {
-      alert('Введіть логін адміністратора')
+      showNotification({
+        title: 'Помилка',
+        message: 'Введіть логін адміністратора',
+        type: 'warning'
+      })
       return
     }
 
@@ -240,18 +263,32 @@ export default function AdminPage() {
         loadAdministrators()
       } else {
         const { error } = await response.json()
-        alert(`Помилка: ${error}`)
+        showNotification({
+          title: 'Помилка створення',
+          message: error || 'Не вдалося створити адміністратора',
+          type: 'error'
+        })
       }
     } catch (error) {
       console.error('Error creating administrator:', error)
-      alert('Помилка створення адміністратора')
+      showNotification({
+        title: 'Помилка створення',
+        message: 'Не вдалося створити адміністратора',
+        type: 'error'
+      })
     }
   }
 
   const deleteAdministrator = async (administratorId: number) => {
-    if (!confirm('Ви впевнені, що хочете видалити цього адміністратора?')) {
-      return
-    }
+    const confirmed = await showConfirm({
+      title: 'Підтвердження видалення',
+      message: 'Ви впевнені, що хочете видалити цього адміністратора?',
+      type: 'warning',
+      confirmText: 'Видалити',
+      cancelText: 'Скасувати'
+    })
+
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/administrators-temp/${administratorId}`, {
@@ -262,15 +299,27 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        alert('Адміністратора успішно видалено!')
+        showNotification({
+          title: 'Успіх!',
+          message: 'Адміністратора успішно видалено!',
+          type: 'success'
+        })
         loadAdministrators()
       } else {
         const { error } = await response.json()
-        alert(`Помилка: ${error}`)
+        showNotification({
+          title: 'Помилка видалення',
+          message: error || 'Не вдалося видалити адміністратора',
+          type: 'error'
+        })
       }
     } catch (error) {
       console.error('Error deleting administrator:', error)
-      alert('Помилка видалення адміністратора')
+      showNotification({
+        title: 'Помилка видалення',
+        message: 'Не вдалося видалити адміністратора',
+        type: 'error'
+      })
     }
   }
 
@@ -285,22 +334,40 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        alert('Роль адміністратора успішно оновлено!')
+        showNotification({
+          title: 'Успіх!',
+          message: 'Роль адміністратора успішно оновлено!',
+          type: 'success'
+        })
         loadAdministrators()
       } else {
         const { error } = await response.json()
-        alert(`Помилка: ${error}`)
+        showNotification({
+          title: 'Помилка оновлення',
+          message: error || 'Не вдалося оновити роль',
+          type: 'error'
+        })
       }
     } catch (error) {
       console.error('Error updating administrator role:', error)
-      alert('Помилка оновлення ролі')
+      showNotification({
+        title: 'Помилка оновлення',
+        message: 'Не вдалося оновити роль',
+        type: 'error'
+      })
     }
   }
 
   const resetAdministratorPassword = async (administratorId: number) => {
-    if (!confirm('Ви впевнені, що хочете скинути пароль цього адміністратора?')) {
-      return
-    }
+    const confirmed = await showConfirm({
+      title: 'Підтвердження скидання пароля',
+      message: 'Ви впевнені, що хочете скинути пароль цього адміністратора?',
+      type: 'warning',
+      confirmText: 'Скинути',
+      cancelText: 'Скасувати'
+    })
+
+    if (!confirmed) return
 
     try {
       const response = await fetch('/api/reset-password', {
@@ -313,15 +380,27 @@ export default function AdminPage() {
 
       if (response.ok) {
         const result = await response.json()
-        alert(result.message || 'Пароль успішно скинуто!')
+        showNotification({
+          title: 'Успіх!',
+          message: result.message || 'Пароль успішно скинуто!',
+          type: 'success'
+        })
         loadAdministrators()
       } else {
         const { error } = await response.json()
-        alert(`Помилка: ${error}`)
+        showNotification({
+          title: 'Помилка скидання',
+          message: error || 'Не вдалося скинути пароль',
+          type: 'error'
+        })
       }
     } catch (error) {
       console.error('Error resetting password:', error)
-      alert('Помилка скидання пароля')
+      showNotification({
+        title: 'Помилка скидання',
+        message: 'Не вдалося скинути пароль',
+        type: 'error'
+      })
     }
   }
 
@@ -339,18 +418,34 @@ export default function AdminPage() {
   const copyLogin = async () => {
     const success = await copyToClipboard(newCredentials.login)
     if (success) {
-      alert('Логін скопійовано до буферу обміну!')
+      showNotification({
+        title: 'Скопійовано!',
+        message: 'Логін скопійовано до буферу обміну!',
+        type: 'success'
+      })
     } else {
-      alert('Помилка копіювання')
+      showNotification({
+        title: 'Помилка',
+        message: 'Не вдалося скопіювати логін',
+        type: 'error'
+      })
     }
   }
 
   const copyPassword = async () => {
     const success = await copyToClipboard(newCredentials.password)
     if (success) {
-      alert('Пароль скопійовано до буферу обміну!')
+      showNotification({
+        title: 'Скопійовано!',
+        message: 'Пароль скопійовано до буферу обміну!',
+        type: 'success'
+      })
     } else {
-      alert('Помилка копіювання')
+      showNotification({
+        title: 'Помилка',
+        message: 'Не вдалося скопіювати пароль',
+        type: 'error'
+      })
     }
   }
 
@@ -358,9 +453,17 @@ export default function AdminPage() {
     const both = `Логін: ${newCredentials.login}\nПароль: ${newCredentials.password}`
     const success = await copyToClipboard(both)
     if (success) {
-      alert('Логін та пароль скопійовано до буферу обміну!')
+      showNotification({
+        title: 'Скопійовано!',
+        message: 'Логін та пароль скопійовано до буферу обміну!',
+        type: 'success'
+      })
     } else {
-      alert('Помилка копіювання')
+      showNotification({
+        title: 'Помилка',
+        message: 'Не вдалося скопіювати дані',
+        type: 'error'
+      })
     }
   }
 
@@ -762,86 +865,20 @@ export default function AdminPage() {
       />
 
       {/* Модальне вікно з новими credentials */}
-      {showCredentialsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="text-center mb-4">
-              <div className="text-4xl mb-2">✅</div>
-              <h3 className="text-xl font-bold text-green-600">
-                Адміністратора успішно створено!
-              </h3>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Логін:</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input 
-                        type="text" 
-                        value={newCredentials.login} 
-                        readOnly 
-                        className="flex-1 p-2 border rounded bg-white text-gray-900 font-mono"
-                      />
-                      <button
-                        onClick={copyLogin}
-                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
-                        title="Копіювати логін"
-                      >
-                        📋
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Тимчасовий пароль:</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input 
-                        type="text" 
-                        value={newCredentials.password} 
-                        readOnly 
-                        className="flex-1 p-2 border rounded bg-white text-gray-900 font-mono"
-                      />
-                      <button
-                        onClick={copyPassword}
-                        className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
-                        title="Копіювати пароль"
-                      >
-                        📋
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={copyBoth}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm font-medium"
-                  >
-                    📋 Копіювати обидва
-                  </button>
-                </div>
-              </div>
-              
-              <div className="bg-yellow-50 p-3 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  ⚠️ <strong>Важливо:</strong> Збережіть ці дані! Адміністратор повинен змінити пароль при першому вході.
-                </p>
-              </div>
-            </div>
-            
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => setShowCredentialsModal(false)}
-                className="px-6 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-              >
-                Закрити
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CredentialsModal
+        isOpen={showCredentialsModal}
+        credentials={newCredentials}
+        onClose={() => setShowCredentialsModal(false)}
+        onCopy={(type) => {
+          if (type === 'login') copyLogin()
+          else if (type === 'password') copyPassword()
+          else if (type === 'both') copyBoth()
+        }}
+      />
+
+      {/* Компоненти для діалогів */}
+      <ConfirmDialogComponent />
+      <NotificationComponent />
     </div>
   )
 }
