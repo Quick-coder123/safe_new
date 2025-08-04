@@ -133,7 +133,10 @@ export function formatDate(date: Date): string {
 
 // Форматування дати для input[type="date"]
 export function formatDateForInput(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // Форматування дати для відображення (День/Місяць/Рік)
@@ -146,5 +149,6 @@ export function formatDateForDisplay(date: Date): string {
 
 // Парсинг дати з input[type="date"]
 export function parseDateFromInput(dateString: string): Date {
-  return new Date(dateString + 'T00:00:00');
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
 }
