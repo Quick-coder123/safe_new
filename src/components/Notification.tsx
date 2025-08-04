@@ -16,19 +16,31 @@ export default function Notification({
   title,
   message,
   type = 'info',
-  duration = 4000,
+  duration = 5000, // Збільшуємо час показу до 5 секунд
   onClose
 }: NotificationProps) {
   const [isVisible, setIsVisible] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(duration)
 
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true)
+      setTimeLeft(duration)
+      
       if (duration > 0) {
-        const timer = setTimeout(() => {
-          onClose()
-        }, duration)
-        return () => clearTimeout(timer)
+        // Оновлюємо лічильник кожні 100мс для плавної анімації
+        const interval = setInterval(() => {
+          setTimeLeft(prev => {
+            if (prev <= 100) {
+              clearInterval(interval)
+              onClose()
+              return 0
+            }
+            return prev - 100
+          })
+        }, 100)
+        
+        return () => clearInterval(interval)
       }
     } else {
       const timer = setTimeout(() => setIsVisible(false), 300)
@@ -87,30 +99,51 @@ export default function Notification({
   return (
     <div className="fixed top-4 right-4 z-50">
       <div 
-        className={`max-w-sm w-full shadow-lg rounded-lg border transform transition-all duration-300 ${
-          isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-        } ${colors.bg}`}
+        className={`max-w-sm w-full shadow-xl rounded-lg border-2 transform transition-all duration-300 bg-white ${
+          isOpen ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-full opacity-0 scale-95'
+        }`}
       >
-        <div className="p-4">
+        {/* Прогрес бар */}
+        {duration > 0 && (
+          <div className="h-1 bg-gray-200 rounded-t-lg overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-100 ease-linear ${
+                type === 'success' ? 'bg-green-500' :
+                type === 'error' ? 'bg-red-500' :
+                type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
+              }`}
+              style={{ width: `${(timeLeft / duration) * 100}%` }}
+            />
+          </div>
+        )}
+        
+        <div className={`p-4 rounded-lg ${colors.bg}`}>
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <span className="text-xl">{getIcon()}</span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                type === 'success' ? 'bg-green-100' :
+                type === 'error' ? 'bg-red-100' :
+                type === 'warning' ? 'bg-orange-100' : 'bg-blue-100'
+              }`}>
+                <span className="text-lg">{getIcon()}</span>
+              </div>
             </div>
             <div className="ml-3 w-0 flex-1">
-              <h4 className={`text-sm font-semibold ${colors.text}`}>
+              <h4 className={`text-base font-semibold ${colors.text} leading-tight`}>
                 {title}
               </h4>
-              <p className={`mt-1 text-sm ${colors.text}`}>
+              <p className={`mt-2 text-sm ${colors.text} leading-relaxed`}>
                 {message}
               </p>
             </div>
             <div className="ml-4 flex-shrink-0 flex">
               <button
                 onClick={onClose}
-                className={`rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${colors.button}`}
+                className={`rounded-full p-1 transition-colors duration-200 ${colors.button} hover:bg-white hover:bg-opacity-20`}
+                title="Закрити"
               >
                 <span className="sr-only">Закрити</span>
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path
                     fillRule="evenodd"
                     d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"

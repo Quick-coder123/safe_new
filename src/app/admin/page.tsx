@@ -9,6 +9,7 @@ import LoginForm from '@/components/LoginForm'
 import { useConfirmDialog } from '@/components/ConfirmDialog'
 import { useNotification } from '@/components/Notification'
 import CredentialsModal from '@/components/CredentialsModal'
+import ResetPasswordModal from '@/components/ResetPasswordModal'
 import Link from 'next/link'
 
 interface SafeCategory {
@@ -77,6 +78,10 @@ export default function AdminPage() {
   // Стан для модального вікна з новими credentials
   const [showCredentialsModal, setShowCredentialsModal] = useState(false)
   const [newCredentials, setNewCredentials] = useState({ login: '', password: '' })
+
+  // Стан для модального вікна скидання пароля
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false)
+  const [resetPasswordData, setResetPasswordData] = useState({ login: '', password: '' })
 
   // Хуки для красивих діалогів
   const { showConfirm, ConfirmDialogComponent } = useConfirmDialog()
@@ -380,11 +385,17 @@ export default function AdminPage() {
 
       if (response.ok) {
         const result = await response.json()
-        showNotification({
-          title: 'Успіх!',
-          message: result.message || 'Пароль успішно скинуто!',
-          type: 'success'
+        
+        // Знаходимо адміністратора за ID для отримання логіна
+        const admin = administrators.find(a => a.id === administratorId)
+        
+        // Показуємо модальне вікно з новим паролем
+        setResetPasswordData({ 
+          login: admin?.login || 'Адміністратор', 
+          password: result.temporaryPassword || '' 
         })
+        setShowResetPasswordModal(true)
+        
         loadAdministrators()
       } else {
         const { error } = await response.json()
@@ -462,6 +473,23 @@ export default function AdminPage() {
       showNotification({
         title: 'Помилка',
         message: 'Не вдалося скопіювати дані',
+        type: 'error'
+      })
+    }
+  }
+
+  const copyResetPassword = async () => {
+    const success = await copyToClipboard(resetPasswordData.password)
+    if (success) {
+      showNotification({
+        title: 'Скопійовано!',
+        message: 'Новий пароль скопійовано до буферу обміну!',
+        type: 'success'
+      })
+    } else {
+      showNotification({
+        title: 'Помилка',
+        message: 'Не вдалося скопіювати пароль',
         type: 'error'
       })
     }
@@ -874,6 +902,15 @@ export default function AdminPage() {
           else if (type === 'password') copyPassword()
           else if (type === 'both') copyBoth()
         }}
+      />
+
+      {/* Модальне вікно скидання пароля */}
+      <ResetPasswordModal
+        isOpen={showResetPasswordModal}
+        adminLogin={resetPasswordData.login}
+        newPassword={resetPasswordData.password}
+        onClose={() => setShowResetPasswordModal(false)}
+        onCopy={copyResetPassword}
       />
 
       {/* Компоненти для діалогів */}
