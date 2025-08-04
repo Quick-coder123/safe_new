@@ -325,12 +325,12 @@ export default function AdminPage() {
 
   const updateAdministratorRole = async (administratorId: number, role: string) => {
     try {
-      const response = await fetch(`/api/administrators/${administratorId}`, {
+      const response = await fetch(`/api/administrators-temp/${administratorId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ administratorId, role }),
+        body: JSON.stringify({ role }),
       })
 
       if (response.ok) {
@@ -370,7 +370,7 @@ export default function AdminPage() {
     if (!confirmed) return
 
     try {
-      const response = await fetch('/api/reset-password', {
+      const response = await fetch('/api/reset-password-temp', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
