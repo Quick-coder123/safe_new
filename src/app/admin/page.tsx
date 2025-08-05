@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/contexts/AuthContext'
 import PasswordChangeModal from '@/components/PasswordChangeModal'
 import LoginForm from '@/components/LoginForm'
 import { useConfirmDialog } from '@/components/ConfirmDialog'
@@ -110,7 +110,19 @@ export default function AdminPage() {
   }
 
   if (!isAdmin) {
-    return <LoginForm onSuccess={() => window.location.reload()} />
+    // Перенаправляємо на головну сторінку, де буде можливість увійти через модальне вікно
+    router.push('/')
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center animate-bounce">
+            <span className="text-2xl">🔐</span>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Перенаправлення...</h2>
+          <p className="text-gray-600">Ви будете перенаправлені на головну сторінку для входу</p>
+        </div>
+      </div>
+    )
   }
 
   const handleLogout = async () => {
@@ -287,8 +299,8 @@ export default function AdminPage() {
   const deleteAdministrator = async (administratorId: number) => {
     const confirmed = await showConfirm({
       title: 'Підтвердження видалення',
-      message: 'Ви впевнені, що хочете видалити цього адміністратора?',
-      type: 'warning',
+      message: 'Ви впевнені, що хочете видалити цього адміністратора? Ця дія не може бути скасована.',
+      type: 'error',
       confirmText: 'Видалити',
       cancelText: 'Скасувати'
     })
@@ -500,56 +512,60 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Заголовок */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">🛠️ Адмін-панель</h1>
+      <div className="flex justify-between items-center animate-slideInUp">
+        <h1 className="text-3xl font-bold text-gray-900 animate-pulse">🛠️ Адмін-панель</h1>
         <div className="flex items-center space-x-4">
           <button
             onClick={() => setShowPasswordModal(true)}
-            className="btn-secondary text-sm"
+            className="btn-secondary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
           >
             🔑 Змінити пароль
           </button>
           <Link 
             href="/"
-            className="btn-secondary text-sm"
+            className="btn-secondary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
           >
             ← Повернутися до калькулятора
           </Link>
-          <span className="text-gray-600">
+          <span className="text-gray-600 animate-slideInRight">
             Вітаємо, {admin?.login}
             {hasTempPassword && (
-              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded animate-bounce">
                 Тимчасовий пароль
               </span>
             )}
           </span>
-          <button onClick={handleLogout} className="btn-secondary">
+          <button 
+            onClick={handleLogout} 
+            className="btn-secondary transition-all duration-300 hover:scale-105 hover:bg-red-500 hover:text-white"
+          >
             Вийти
           </button>
         </div>
       </div>
 
       {/* Вкладки */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 animate-slideInUp">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: 'categories', name: 'Категорії сейфів' },
-            { id: 'insurance', name: 'Страхування' },
-            { id: 'settings', name: 'Налаштування' },
-            ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори' }] : []),
-            { id: 'logs', name: 'Журнал змін' },
+            { id: 'categories', name: 'Категорії сейфів', icon: '📁' },
+            { id: 'insurance', name: 'Страхування', icon: '🛡️' },
+            { id: 'settings', name: 'Налаштування', icon: '⚙️' },
+            ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори', icon: '👥' }] : []),
+            { id: 'logs', name: 'Журнал змін', icon: '📋' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`py-2 px-4 border-b-2 font-medium text-sm transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
                 activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-md'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
               }`}
             >
+              <span className="mr-2">{tab.icon}</span>
               {tab.name}
             </button>
           ))}
@@ -557,14 +573,17 @@ export default function AdminPage() {
       </div>
 
       {/* Контент вкладок */}
-      <div className="calculator-card">
+      <div className="calculator-card animate-slideInUp">
         {activeTab === 'categories' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Тарифи за категоріями</h2>
-            <div className="overflow-x-auto bg-white rounded-lg shadow">
+          <div className="animate-fadeIn">
+            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
+              <span className="mr-2">📁</span>
+              Тарифи за категоріями
+            </h2>
+            <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-100">
+                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 animate-slideInDown">
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900 w-48 min-w-[12rem]">Категорія</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">до 30 днів</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">31-90 днів</th>
@@ -573,8 +592,12 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white">
-                  {categories.map((category) => (
-                    <tr key={category.id} className="hover:bg-gray-50">
+                  {categories.map((category, index) => (
+                    <tr 
+                      key={category.id} 
+                      className="hover:bg-blue-50 transition-all duration-300 animate-slideInUp"
+                      style={{animationDelay: `${index * 0.1}s`}}
+                    >
                       <td className="border border-gray-300 px-4 py-3 font-semibold text-gray-900 w-48 min-w-[12rem]">
                         {category.name}
                       </td>
@@ -582,7 +605,7 @@ export default function AdminPage() {
                         <input
                           type="number"
                           step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                          className="w-full px-3 py-2 border border-gray-300 rounded transition-all duration-300 focus:outline-none focus:border-blue-500 focus:shadow-lg focus:scale-105 text-gray-900 bg-white hover:border-blue-300"
                           value={category.rates.up_to_30}
                           onChange={(e) => updateCategory(category.id, 'up_to_30', parseFloat(e.target.value))}
                         />
@@ -591,7 +614,7 @@ export default function AdminPage() {
                         <input
                           type="number"
                           step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                          className="w-full px-3 py-2 border border-gray-300 rounded transition-all duration-300 focus:outline-none focus:border-blue-500 focus:shadow-lg focus:scale-105 text-gray-900 bg-white hover:border-blue-300"
                           value={category.rates.from_31_to_90}
                           onChange={(e) => updateCategory(category.id, 'from_31_to_90', parseFloat(e.target.value))}
                         />
@@ -600,7 +623,7 @@ export default function AdminPage() {
                         <input
                           type="number"
                           step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                          className="w-full px-3 py-2 border border-gray-300 rounded transition-all duration-300 focus:outline-none focus:border-blue-500 focus:shadow-lg focus:scale-105 text-gray-900 bg-white hover:border-blue-300"
                           value={category.rates.from_91_to_180}
                           onChange={(e) => updateCategory(category.id, 'from_91_to_180', parseFloat(e.target.value))}
                         />
@@ -609,7 +632,7 @@ export default function AdminPage() {
                         <input
                           type="number"
                           step="0.01"
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-gray-900 bg-white"
+                          className="w-full px-3 py-2 border border-gray-300 rounded transition-all duration-300 focus:outline-none focus:border-blue-500 focus:shadow-lg focus:scale-105 text-gray-900 bg-white hover:border-blue-300"
                           value={category.rates.from_181_to_365}
                           onChange={(e) => updateCategory(category.id, 'from_181_to_365', parseFloat(e.target.value))}
                         />
@@ -623,16 +646,23 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'insurance' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Тарифи страхування ключа</h2>
+          <div className="animate-fadeIn">
+            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
+              <span className="mr-2">🛡️</span>
+              Тарифи страхування ключа
+            </h2>
             <div className="space-y-4">
               {insuranceRates.map((rate, index) => (
-                <div key={index} className="grid grid-cols-3 gap-4 p-4 border rounded">
+                <div 
+                  key={index} 
+                  className="grid grid-cols-3 gap-4 p-4 border rounded-lg shadow-md hover:shadow-lg transition-all duration-300 animate-slideInUp bg-white"
+                  style={{animationDelay: `${index * 0.1}s`}}
+                >
                   <div>
                     <label className="form-label">Мін. днів</label>
                     <input
                       type="number"
-                      className="form-input"
+                      className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                       value={rate.min_days}
                       onChange={(e) => updateInsuranceRate(index, 'min_days', parseInt(e.target.value))}
                     />
@@ -641,7 +671,7 @@ export default function AdminPage() {
                     <label className="form-label">Макс. днів</label>
                     <input
                       type="number"
-                      className="form-input"
+                      className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                       value={rate.max_days}
                       onChange={(e) => updateInsuranceRate(index, 'max_days', parseInt(e.target.value))}
                     />
@@ -650,8 +680,8 @@ export default function AdminPage() {
                     <label className="form-label">Ціна (грн)</label>
                     <input
                       type="number"
+                      className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                       step="0.01"
-                      className="form-input"
                       value={rate.price}
                       onChange={(e) => updateInsuranceRate(index, 'price', parseFloat(e.target.value))}
                     />
@@ -663,40 +693,52 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'settings' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Загальні налаштування</h2>
+          <div className="animate-fadeIn">
+            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
+              <span className="mr-2">⚙️</span>
+              Загальні налаштування
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-4">
-                <div className="form-group">
-                  <label className="form-label">Вартість довіреності (грн)</label>
+              <div className="space-y-4 animate-slideInUp" style={{animationDelay: '0.1s'}}>
+                <div className="form-group p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300">
+                  <label className="form-label flex items-center">
+                    <span className="mr-2">📄</span>
+                    Вартість довіреності (грн)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
-                    className="form-input"
+                    className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                     value={settings.trust_document_price}
                     onChange={(e) => updateSetting('trust_document_price', e.target.value)}
                   />
                 </div>
               </div>
-              <div className="space-y-4">
-                <div className="form-group">
-                  <label className="form-label">Вартість пакету (грн)</label>
+              <div className="space-y-4 animate-slideInUp" style={{animationDelay: '0.2s'}}>
+                <div className="form-group p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300">
+                  <label className="form-label flex items-center">
+                    <span className="mr-2">📦</span>
+                    Вартість пакету (грн)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
-                    className="form-input"
+                    className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                     value={settings.package_price}
                     onChange={(e) => updateSetting('package_price', e.target.value)}
                   />
                 </div>
               </div>
-              <div className="space-y-4">
-                <div className="form-group">
-                  <label className="form-label">Грошове забезпечення (грн)</label>
+              <div className="space-y-4 animate-slideInUp" style={{animationDelay: '0.3s'}}>
+                <div className="form-group p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300">
+                  <label className="form-label flex items-center">
+                    <span className="mr-2">💰</span>
+                    Грошове забезпечення (грн)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
-                    className="form-input"
+                    className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                     value={settings.guarantee_amount}
                     onChange={(e) => updateSetting('guarantee_amount', e.target.value)}
                   />
@@ -710,18 +752,24 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'administrators' && isSuperAdmin && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Управління адміністраторами</h2>
+          <div className="animate-fadeIn">
+            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
+              <span className="mr-2">👥</span>
+              Управління адміністраторами
+            </h2>
             
             {/* Форма додавання нового адміністратора */}
-            <div className="bg-blue-50 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium mb-3">Додати нового адміністратора</h3>
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-6 shadow-md animate-slideInUp">
+              <h3 className="text-lg font-medium mb-3 flex items-center">
+                <span className="mr-2">➕</span>
+                Додати нового адміністратора
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
+                <div className="animate-slideInUp" style={{animationDelay: '0.1s'}}>
                   <label className="form-label">Логін</label>
                   <input
                     type="text"
-                    className="form-input"
+                    className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
                     value={newAdminLogin}
                     onChange={(e) => setNewAdminLogin(e.target.value)}
                     placeholder="admin_user"
@@ -729,10 +777,10 @@ export default function AdminPage() {
                     title="Логін може містити тільки букви, цифри, підкреслення та дефіси"
                   />
                 </div>
-                <div>
+                <div className="animate-slideInUp" style={{animationDelay: '0.2s'}}>
                   <label className="form-label">Роль</label>
                   <select
-                    className="form-select"
+                    className="form-select animate-slideInUp transition-all duration-300 hover:scale-105 focus:scale-105"
                     value={newAdminRole}
                     onChange={(e) => setNewAdminRole(e.target.value as 'admin' | 'super_admin')}
                   >
@@ -740,10 +788,10 @@ export default function AdminPage() {
                     <option value="super_admin">Супер-адміністратор</option>
                   </select>
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end animate-slideInUp" style={{animationDelay: '0.3s'}}>
                   <button
                     onClick={createAdministrator}
-                    className="btn-primary w-full"
+                    className="btn-primary w-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
                   >
                     Додати адміністратора
                   </button>
@@ -756,10 +804,10 @@ export default function AdminPage() {
             </div>
 
             {/* Список адміністраторів */}
-            <div className="overflow-x-auto bg-white rounded-lg shadow">
+            <div className="overflow-x-auto bg-white rounded-lg shadow-lg animate-slideInUp">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-100">
+                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 animate-slideInDown">
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Логін</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Роль</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Статус пароля</th>
@@ -768,8 +816,12 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white">
-                  {administrators.map((adminItem) => (
-                    <tr key={adminItem.id} className="hover:bg-gray-50">
+                  {administrators.map((adminItem, index) => (
+                    <tr 
+                      key={adminItem.id} 
+                      className="hover:bg-blue-50 transition-all duration-300 animate-slideInUp"
+                      style={{animationDelay: `${index * 0.1}s`}}
+                    >
                       <td className="border border-gray-300 px-4 py-3 text-gray-900">
                         {adminItem.login}
                         {adminItem.id === admin?.adminId && (
@@ -807,16 +859,16 @@ export default function AdminPage() {
                             <>
                               <button
                                 onClick={() => resetAdministratorPassword(adminItem.id)}
-                                className="btn-secondary text-xs"
+                                className="btn-secondary text-xs transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                                 title="Скинути пароль"
                               >
                                 🔄 Скинути пароль
                               </button>
                               <button
                                 onClick={() => deleteAdministrator(adminItem.id)}
-                                className="btn-danger text-xs"
+                                className="btn-danger text-xs transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                               >
-                                Видалити
+                                🗑️ Видалити
                               </button>
                             </>
                           )}
@@ -831,12 +883,15 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'logs' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Журнал змін</h2>
-            <div className="overflow-x-auto bg-white rounded-lg shadow">
+          <div className="animate-fadeIn">
+            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
+              <span className="mr-2">📋</span>
+              Журнал змін
+            </h2>
+            <div className="overflow-x-auto bg-white rounded-lg shadow-lg animate-slideInUp">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-100">
+                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 animate-slideInDown">
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Дата/час</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Таблиця</th>
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Дія</th>
@@ -844,8 +899,12 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white">
-                  {changeLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
+                  {changeLogs.map((log, index) => (
+                    <tr 
+                      key={log.id} 
+                      className="hover:bg-blue-50 transition-all duration-300 animate-slideInUp"
+                      style={{animationDelay: `${index * 0.05}s`}}
+                    >
                       <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900">
                         {new Date(log.created_at).toLocaleString('uk-UA')}
                       </td>
@@ -890,6 +949,11 @@ export default function AdminPage() {
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
         isRequired={hasTempPassword}
+        onSuccess={(message) => showNotification({
+          title: 'Успіх!',
+          message: message,
+          type: 'success'
+        })}
       />
 
       {/* Модальне вікно з новими credentials */}

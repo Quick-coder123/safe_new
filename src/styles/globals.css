@@ -24,29 +24,63 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
 }
 
-/* Забезпечуємо темний текст для всіх елементів */
-* {
-  color: #1f2937;
-}
-
+/* Покращена типографія */
 h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-poppins), var(--font-inter), sans-serif !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.02em !important;
   color: #1f2937 !important;
 }
 
+h1 { font-size: 2.5rem; font-weight: 700 !important; }
+h2 { font-size: 1.875rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+
+/* Оптимізація читабельності */
 p, span, div, label {
   color: #1f2937 !important;
+  line-height: 1.6 !important;
+}
+
+label {
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+  letter-spacing: 0.025em !important;
 }
 
 .calculator-card {
   background-color: white;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-  padding: 24px;
+  border-radius: 12px;
+  padding: 28px;
   margin-bottom: 24px;
   color: #1f2937;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374151 !important;
+  font-family: var(--font-poppins), sans-serif;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  letter-spacing: 0.025em !important;
+  text-transform: uppercase;
+  opacity: 0.9;
 }
 
 .form-group {
@@ -63,49 +97,133 @@ p, span, div, label {
 
 .form-input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   background-color: white;
   color: #1f2937 !important;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.form-input:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .form-input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #3b82f6;
   border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
 .form-select {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  padding: 12px 40px 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   background-color: white;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
   color: #1f2937 !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.form-select:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%233b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
 }
 
 .form-select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #3b82f6;
   border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px) scale(1.01);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%233b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+}
+
+.form-select:active {
+  transform: translateY(0) scale(1.01);
+}
+
+/* Стилі для опцій */
+.form-select option {
+  color: #1f2937;
+  background-color: white;
+  font-weight: 500;
+  padding: 12px 16px;
+  border-radius: 4px;
+}
+
+.form-select option:hover {
+  background-color: #f3f4f6;
+}
+
+.form-select option:checked {
+  background-color: #3b82f6;
+  color: white;
 }
 
 .btn-primary {
-  background-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: white !important;
-  font-weight: 500;
-  padding: 8px 16px;
-  border-radius: 6px;
+  font-family: var(--font-poppins), sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.025em;
+  padding: 12px 24px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
 }
 
 .btn-primary:hover {
-  background-color: #1d4ed8;
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
 }
 
 .btn-secondary {
@@ -268,4 +386,712 @@ nav a {
 
 nav a:hover {
   color: #1f2937 !important;
+}
+
+/* ========================= */
+/* КАСТОМНІ АНІМАЦІЇ */
+/* ========================= */
+
+/* Анімація появи */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Анімація зсуву вниз */
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Анімація зсуву зліва */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Анімація зсуву справа */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Анімація зсуву знизу */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Анімація масштабування */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Анімація пульсації для повідомлень */
+@keyframes gentlePulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Анімація для галочки успіху */
+@keyframes checkmark {
+  0% {
+    stroke-dasharray: 0, 100;
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 100, 0;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* Анімація малювання галочки */
+@keyframes drawCheck {
+  0% {
+    stroke-dashoffset: 20;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Анімація появи з поштовхом */
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Затримки для анімацій */
+.animation-delay-0 {
+  animation-delay: 0s;
+}
+
+.animation-delay-150 {
+  animation-delay: 0.15s;
+}
+
+.animation-delay-300 {
+  animation-delay: 0.3s;
+}
+
+.animation-delay-450 {
+  animation-delay: 0.45s;
+}
+
+/* Застосування анімацій */
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-out;
+}
+
+.animate-slideInDown {
+  animation: slideInDown 0.8s ease-out;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.8s ease-out;
+}
+
+.animate-slideInUp {
+  animation: slideInUp 1s ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.5s ease-out;
+}
+
+.animate-gentlePulse {
+  animation: gentlePulse 2s ease-in-out infinite;
+}
+
+.animate-checkmark {
+  animation: popIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.animate-popIn {
+  animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Покращені ховер ефекти для кнопок */
+.btn-animated {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(0);
+}
+
+.btn-animated:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+}
+
+.btn-animated:active {
+  transform: translateY(0);
+  transition: all 0.1s;
+}
+
+/* Анімації для форм */
+.form-input-animated {
+  transition: all 0.3s ease;
+  border: 2px solid #e5e7eb;
+}
+
+.form-input-animated:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+}
+
+/* Анімації для кнопок швидкого вибору */
+.quick-select-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-select-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.quick-select-btn:hover::before {
+  left: 100%;
+}
+
+.quick-select-btn:hover {
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+}
+
+.quick-select-btn.active {
+  animation: pulseGlow 2s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.8), 0 0 25px rgba(59, 130, 246, 0.4);
+  }
+}
+
+/* Анімації для модальних вікон */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modalSlideOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.7) translateY(-50px);
+  }
+}
+
+@keyframes modalShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes modalBounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modalPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes modalGlow {
+  0%, 100% {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05), 0 0 30px rgba(59, 130, 246, 0.15);
+  }
+}
+
+@keyframes inputFocus {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4);
+  }
+}
+
+@keyframes successCheck {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+  }
+}
+
+/* Анімації для діалогів підтвердження */
+@keyframes confirmSlideDown {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes confirmSlideUp {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8) translateY(-50px);
+  }
+}
+
+@keyframes confirmShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+  20%, 40%, 60%, 80% { transform: translateX(3px); }
+}
+
+@keyframes confirmPulse {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 10px currentColor;
+    opacity: 0;
+  }
+}
+
+@keyframes iconBounce {
+  0%, 20%, 53%, 80%, 100% {
+    animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+    transform: translate3d(0,0,0);
+  }
+  40%, 43% {
+    animation-timing-function: cubic-bezier(0.755, 0.050, 0.855, 0.060);
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    animation-timing-function: cubic-bezier(0.755, 0.050, 0.855, 0.060);
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0,-1px,0);
+  }
+}
+
+@keyframes buttonPress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* CSS класи для модальних анімацій */
+.modal-overlay {
+  animation: modalFadeIn 0.3s ease-out;
+  backdrop-filter: blur(4px);
+  transition: backdrop-filter 0.3s ease;
+}
+
+.modal-overlay.closing {
+  animation: modalFadeIn 0.2s ease-in reverse;
+  backdrop-filter: blur(0px);
+}
+
+.modal-content {
+  animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.modal-content.closing {
+  animation: modalSlideOut 0.3s ease-in;
+}
+
+.modal-content.shake {
+  animation: modalShake 0.5s ease-in-out;
+}
+
+.modal-content.bounce {
+  animation: modalBounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.modal-content.pulse {
+  animation: modalPulse 0.3s ease-in-out;
+}
+
+.modal-header {
+  animation: slideInDown 0.5s ease-out 0.1s both;
+}
+
+.modal-body {
+  animation: fadeIn 0.6s ease-out 0.2s both;
+}
+
+.modal-footer {
+  animation: slideInUp 0.5s ease-out 0.3s both;
+}
+
+/* Додаткові ефекти для кнопок в модальних вікнах */
+.modal-content .btn-primary,
+.modal-content .btn-secondary {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.modal-content .btn-primary:before,
+.modal-content .btn-secondary:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.modal-content .btn-primary:hover:before,
+.modal-content .btn-secondary:hover:before {
+  left: 100%;
+}
+
+/* Спеціальні ефекти для інпутів в модальних вікнах */
+.modal-content .form-input {
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.modal-content .form-input:focus {
+  animation: inputFocus 0.3s ease;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-color: rgb(59, 130, 246);
+}
+
+.modal-content .form-input:hover {
+  border-color: rgb(156, 163, 175);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Спеціальні ефекти для індикатора міцності пароля */
+.password-strength-indicator {
+  transition: all 0.5s ease;
+  border-radius: 9999px;
+}
+
+.password-strength-weak {
+  background: linear-gradient(to right, #ef4444 0%, #dc2626 100%);
+  animation: gentlePulse 2s infinite;
+}
+
+.password-strength-medium {
+  background: linear-gradient(to right, #f59e0b 0%, #d97706 100%);
+}
+
+.password-strength-strong {
+  background: linear-gradient(to right, #10b981 0%, #059669 100%);
+  animation: modalGlow 3s ease-in-out infinite;
+}
+
+/* CSS класи для діалогів підтвердження */
+.confirm-overlay {
+  animation: modalFadeIn 0.3s ease-out;
+  backdrop-filter: blur(3px);
+}
+
+.confirm-overlay.closing {
+  animation: modalFadeIn 0.2s ease-in reverse;
+  backdrop-filter: blur(0px);
+}
+
+.confirm-content {
+  animation: confirmSlideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.confirm-content.closing {
+  animation: confirmSlideUp 0.3s ease-in;
+}
+
+.confirm-content.shake {
+  animation: confirmShake 0.6s ease-in-out;
+}
+
+.confirm-icon {
+  animation: iconBounce 1s ease-in-out;
+}
+
+.confirm-icon.warning {
+  color: #f59e0b;
+  animation: iconBounce 1s ease-in-out, confirmPulse 2s infinite;
+}
+
+.confirm-icon.error {
+  color: #ef4444;
+  animation: iconBounce 1s ease-in-out, confirmPulse 1.5s infinite;
+}
+
+.confirm-icon.success {
+  color: #10b981;
+  animation: iconBounce 1s ease-in-out;
+}
+
+.confirm-icon.info {
+  color: #3b82f6;
+  animation: iconBounce 1s ease-in-out;
+}
+
+.confirm-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.confirm-button:active {
+  animation: buttonPress 0.2s ease-in-out;
+}
+
+.confirm-button:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.confirm-button:hover:before {
+  left: 100%;
+}
+
+.confirm-header {
+  animation: slideInDown 0.5s ease-out 0.1s both;
+}
+
+.confirm-body {
+  animation: fadeIn 0.6s ease-out 0.2s both;
+}
+
+.confirm-footer {
+  animation: slideInUp 0.5s ease-out 0.3s both;
+}
+
+/* CSS стилі для LoginModal */
+.login-modal-content {
+  animation: modalSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.login-modal-content.closing {
+  animation: modalSlideOut 0.3s ease-in;
+}
+
+.login-modal-content.shake {
+  animation: modalShake 0.5s ease-in-out;
+}
+
+.login-modal-content.bounce {
+  animation: modalBounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Додаткові ефекти для інпутів в LoginModal */
+.login-modal-content .form-input {
+  transition: all 0.3s ease;
+  font-size: 16px; /* Запобігає zoom на iOS */
+}
+
+.login-modal-content .form-input:focus {
+  animation: inputFocus 0.3s ease;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-color: rgb(59, 130, 246);
+  background-color: rgba(59, 130, 246, 0.02);
+}
+
+.login-modal-content .form-input:hover {
+  border-color: rgb(156, 163, 175);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Додаткові анімації для адмін панелі */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.6s ease-out;
+}
+
+.animate-slideInDown {
+  animation: slideInDown 0.4s ease-out;
+}
+
+/* Анімація для карток при hover */
+.card-hover-effect {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover-effect:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }

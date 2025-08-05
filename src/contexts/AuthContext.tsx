@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+'use client'
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
 interface AdminData {
   adminId: number
@@ -7,13 +9,23 @@ interface AdminData {
   isTempPassword: boolean
 }
 
-export function useAuth() {
+interface AuthContextType {
+  admin: AdminData | null
+  loading: boolean
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  adminRole: string | null
+  hasTempPassword: boolean
+  login: (login: string, password: string) => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<void>
+  refreshSession: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminData | null>(null)
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    checkAdminSession()
-  }, [])
 
   const checkAdminSession = async () => {
     try {
@@ -28,6 +40,10 @@ export function useAuth() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    checkAdminSession()
+  }, [])
 
   const login = async (login: string, password: string) => {
     try {
@@ -66,15 +82,29 @@ export function useAuth() {
     await checkAdminSession()
   }
 
-  return {
+  const value: AuthContextType = {
     admin,
     loading,
-    login,
-    logout,
-    refreshSession,
     isAdmin: !!admin,
     isSuperAdmin: admin?.role === 'super_admin',
     adminRole: admin?.role || null,
-    hasTempPassword: admin?.isTempPassword || false
+    hasTempPassword: admin?.isTempPassword || false,
+    login,
+    logout,
+    refreshSession
   }
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

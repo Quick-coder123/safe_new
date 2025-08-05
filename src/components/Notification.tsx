@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export interface NotificationProps {
   isOpen: boolean
@@ -21,6 +21,11 @@ export default function Notification({
 }: NotificationProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [timeLeft, setTimeLeft] = useState(duration)
+  
+  // Оптимізований callback для закриття
+  const handleClose = useCallback(() => {
+    setTimeout(() => onClose(), 0)
+  }, [onClose])
 
   useEffect(() => {
     if (isOpen) {
@@ -33,7 +38,8 @@ export default function Notification({
           setTimeLeft(prev => {
             if (prev <= 100) {
               clearInterval(interval)
-              onClose()
+              // Використовуємо асинхронний callback
+              handleClose()
               return 0
             }
             return prev - 100
@@ -46,21 +52,63 @@ export default function Notification({
       const timer = setTimeout(() => setIsVisible(false), 300)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, duration, onClose])
+  }, [isOpen, duration, handleClose])
 
   if (!isVisible) return null
 
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return '✅'
+        return (
+          <svg className="w-5 h-5 text-green-600" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+              className="animate-checkmark"
+              style={{
+                strokeDasharray: '20',
+                strokeDashoffset: '20',
+                animation: 'drawCheck 0.8s ease-in-out forwards'
+              }}
+            />
+          </svg>
+        )
       case 'error':
-        return '❌'
+        return (
+          <svg className="w-5 h-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+            <path 
+              fillRule="evenodd" 
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" 
+              clipRule="evenodd"
+              className="animate-scaleIn"
+            />
+          </svg>
+        )
       case 'warning':
-        return '⚠️'
+        return (
+          <svg className="w-5 h-5 text-orange-600" viewBox="0 0 20 20" fill="currentColor">
+            <path 
+              fillRule="evenodd" 
+              d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" 
+              clipRule="evenodd"
+              className="animate-bounce"
+            />
+          </svg>
+        )
       case 'info':
       default:
-        return 'ℹ️'
+        return (
+          <svg className="w-5 h-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+            <path 
+              fillRule="evenodd" 
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" 
+              clipRule="evenodd"
+              className="animate-scaleIn"
+            />
+          </svg>
+        )
     }
   }
 
@@ -99,9 +147,13 @@ export default function Notification({
   return (
     <div className="fixed top-4 right-4 z-50">
       <div 
-        className={`max-w-sm w-full shadow-xl rounded-lg border-2 transform transition-all duration-300 bg-white ${
-          isOpen ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-full opacity-0 scale-95'
+        className={`max-w-md w-full shadow-xl rounded-lg border-2 transform transition-all duration-500 bg-white animate-scaleIn ${
+          isOpen ? 'translate-x-0 opacity-100 scale-100 animate-slideInRight' : 'translate-x-full opacity-0 scale-95'
         }`}
+        style={{
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        }}
       >
         {/* Прогрес бар */}
         {duration > 0 && (
@@ -120,25 +172,25 @@ export default function Notification({
         <div className={`p-4 rounded-lg ${colors.bg}`}>
           <div className="flex items-start">
             <div className="flex-shrink-0">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center animate-popIn ${
                 type === 'success' ? 'bg-green-100' :
                 type === 'error' ? 'bg-red-100' :
                 type === 'warning' ? 'bg-orange-100' : 'bg-blue-100'
               }`}>
-                <span className="text-lg">{getIcon()}</span>
+                {getIcon()}
               </div>
             </div>
-            <div className="ml-3 w-0 flex-1">
+            <div className="ml-3 flex-1">
               <h4 className={`text-base font-semibold ${colors.text} leading-tight`}>
                 {title}
               </h4>
-              <p className={`mt-2 text-sm ${colors.text} leading-relaxed`}>
+              <p className={`mt-2 text-sm ${colors.text} leading-relaxed break-words`}>
                 {message}
               </p>
             </div>
             <div className="ml-4 flex-shrink-0 flex">
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className={`rounded-full p-1 transition-colors duration-200 ${colors.button} hover:bg-white hover:bg-opacity-20`}
                 title="Закрити"
               >

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import ConfigurationError from '@/components/ConfigurationError'
+import Notification from '@/components/Notification'
 import { 
   calculateRental, 
   formatDateForInput, 
@@ -10,7 +11,7 @@ import {
   type CalculationInput,
   type CalculationResult
 } from '@/utils/calculator'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/contexts/AuthContext'
 import { useConfig } from '@/hooks/useConfig'
 
 export default function HomePage() {
@@ -39,6 +40,29 @@ export default function HomePage() {
   })
   const [insurancePaymentUrl, setInsurancePaymentUrl] = useState('')
 
+  // Стан для notification
+  const [notification, setNotification] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    type: 'info' | 'warning' | 'error' | 'success'
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  })
+
+  // Функція для показу notification
+  const showNotification = (title: string, message: string, type: 'info' | 'warning' | 'error' | 'success' = 'info') => {
+    setNotification({
+      isOpen: true,
+      title,
+      message,
+      type
+    })
+  }
+
   // Перерахунок при зміні даних
   useEffect(() => {
     if (!config) return // Чекаємо поки config завантажиться
@@ -48,6 +72,7 @@ export default function HomePage() {
       setResult(calculationResult)
     } catch (error) {
       console.error('Помилка розрахунку:', error)
+      showNotification('Помилка', 'Помилка розрахунку. Перевірте введені дані.', 'error')
       setResult(null)
     }
   }, [formData, config])
@@ -101,27 +126,40 @@ export default function HomePage() {
     const paymentAmount = result.totalCost - result.insurance
     const updatedPurpose = `${paymentDetails.purpose}. Сума: ${paymentAmount.toFixed(2)} грн`
     
-    alert(`Реквізити для оплати:
-Отримувач: ${paymentDetails.recipient}
+    showNotification('Реквізити для оплати', `Отримувач: ${paymentDetails.recipient}
 Код ЄДРПОУ: ${paymentDetails.edrpou}
 IBAN: ${paymentDetails.iban}
 Призначення платежу: ${updatedPurpose}
-Сума: ${paymentAmount.toFixed(2)} грн`)
+Сума: ${paymentAmount.toFixed(2)} грн`, 'info')
   }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      alert('Скопійовано до буферу обміну!')
+      showNotification('Готово!', 'Скопійовано до буферу обміну!', 'success')
+    }).catch(() => {
+      showNotification('Помилка', 'Не вдалося скопіювати до буферу обміну', 'error')
     })
   }
 
   // Показуємо індикатор завантаження поки конфігурація не завантажена
   if (configLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Завантаження конфігурації...</p>
+          <div className="relative mb-6">
+            {/* Основний спінер */}
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-600 mx-auto"></div>
+            {/* Центральна іконка */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl text-blue-600 animate-pulse">
+              🔐
+            </div>
+          </div>
+          <p className="text-gray-700 font-medium mb-3">Завантаження конфігурації...</p>
+          <div className="flex justify-center space-x-2">
+            <div className="h-2 w-2 bg-blue-500 rounded-full animate-bounce"></div>
+            <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce animation-delay-150"></div>
+            <div className="h-2 w-2 bg-blue-300 rounded-full animate-bounce animation-delay-300"></div>
+          </div>
         </div>
       </div>
     )
@@ -142,30 +180,17 @@ IBAN: ${paymentDetails.iban}
   return (
     <>
       <ConfigurationError />
-      <div className="space-y-6">
-      {/* Заголовок */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold mb-2" style={{color: '#1f2937'}}>
-          🧮 Калькулятор оренди сейфу
-        </h1>
-        <p style={{color: '#6b7280'}}>
-          Розрахунок вартості оренди індивідуального сейфу з динамічними тарифами
-        </p>
-        {!isAdmin && (
-          <div className="mt-3">
-            <a 
-              href="/admin" 
-              className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
-            >
-              🔐 Вхід для адміністратора
-            </a>
-          </div>
-        )}
+      <div className="space-y-6 animate-fadeIn">
+      {/* Заголовок з навігацією */}
+      <div className="relative">        
+        {/* Основний заголовок */}
+        <div className="text-center transform transition-all duration-1000 animate-slideInDown">
+        </div>
       </div>
 
       <div className={`grid grid-cols-1 gap-6 ${isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
         {/* Форма вводу */}
-        <div className="calculator-card">
+        <div className="calculator-card transform transition-all duration-700 hover:scale-105 hover:shadow-xl animate-slideInLeft">
           <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>Вхідні дані</h2>
           
           <div className="space-y-4">
@@ -173,7 +198,7 @@ IBAN: ${paymentDetails.iban}
             <div className="form-group">
               <label className="form-label">Категорія сейфу</label>
               <select 
-                className="form-select"
+                className="form-select animate-slideInUp"
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
               >
@@ -189,7 +214,7 @@ IBAN: ${paymentDetails.iban}
             <div className="form-group">
               <label className="form-label">Тип договору</label>
               <select 
-                className="form-select"
+                className="form-select animate-slideInUp"
                 value={formData.contractType}
                 onChange={(e) => handleInputChange('contractType', e.target.value as 'new' | 'extension')}
               >
@@ -202,7 +227,7 @@ IBAN: ${paymentDetails.iban}
             <div className="form-group">
               <label className="form-label">Тип покриття</label>
               <select 
-                className="form-select"
+                className="form-select animate-slideInUp"
                 value={formData.coverageType}
                 onChange={(e) => handleInputChange('coverageType', e.target.value as 'insurance' | 'guarantee')}
               >
@@ -217,7 +242,7 @@ IBAN: ${paymentDetails.iban}
                 <label className="form-label">Дата початку</label>
                 <input 
                   type="date"
-                  className="form-input"
+                  className="form-input form-input-animated"
                   value={formatDateForInput(formData.startDate)}
                   onChange={(e) => handleDateChange('startDate', e.target.value)}
                 />
@@ -227,7 +252,7 @@ IBAN: ${paymentDetails.iban}
                 <label className="form-label">Термін оренди (днів)</label>
                 <input 
                   type="number"
-                  className="form-input"
+                  className="form-input form-input-animated"
                   min="1"
                   max="365"
                   value={termDays}
@@ -242,10 +267,10 @@ IBAN: ${paymentDetails.iban}
                       key={days}
                       type="button"
                       onClick={() => handleTermDaysChange(days)}
-                      className={`px-3 py-1 text-xs rounded border ${
+                      className={`quick-select-btn px-3 py-1 text-xs rounded border transition-all duration-300 ease-in-out transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 active:translate-y-0 ${
                         termDays === days 
-                          ? 'bg-blue-500 text-white border-blue-500' 
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'active bg-blue-500 text-white border-blue-500 shadow-lg' 
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 hover:shadow-md'
                       }`}
                     >
                       {days === 7 ? '1 тиж' : 
@@ -289,39 +314,71 @@ IBAN: ${paymentDetails.iban}
                 className="form-input"
                 min="0"
                 step="0.01"
-                value={formData.penalty}
-                onChange={(e) => handleInputChange('penalty', parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                value={formData.penalty || ''}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0
+                  handleInputChange('penalty', val)
+                }}
               />
             </div>
 
             {/* Додаткові послуги */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="form-group">
-                <label className="form-label">Кількість довіреностей</label>
-                <input 
-                  type="number"
-                  className="form-input"
-                  min="0"
-                  value={formData.trustDocuments}
-                  onChange={(e) => handleInputChange('trustDocuments', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Кількість пакетів</label>
-                <input 
-                  type="number"
-                  className="form-input"
-                  min="0"
-                  value={formData.packages}
-                  onChange={(e) => handleInputChange('packages', parseInt(e.target.value) || 0)}
-                />
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-700 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Додаткові послуги
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="form-group">
+                  <label className="form-label text-sm">
+                    <svg className="w-4 h-4 mr-1 text-gray-500 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Кількість довіреностей
+                  </label>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    min="0"
+                    step="1"
+                    placeholder="Введіть кількість"
+                    value={formData.trustDocuments === 0 ? '' : formData.trustDocuments}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0
+                      handleInputChange('trustDocuments', val)
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label text-sm">
+                    <svg className="w-4 h-4 mr-1 text-gray-500 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    Кількість пакетів
+                  </label>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    min="0"
+                    step="1"
+                    placeholder="Введіть кількість"
+                    value={formData.packages === 0 ? '' : formData.packages}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : parseInt(e.target.value) || 0
+                      handleInputChange('packages', val)
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Результати розрахунку */}
-        <div className="calculator-card">
+        <div className="calculator-card transform transition-all duration-700 hover:scale-105 hover:shadow-xl animate-slideInRight">
           <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>Розрахунок вартості</h2>
           
           {result && (
@@ -372,14 +429,24 @@ IBAN: ${paymentDetails.iban}
                   </div>
                 )}
                 {result.trustDocumentsCost > 0 && (
-                  <div className="flex justify-between">
-                    <span style={{color: '#1f2937'}}>Довіреності:</span>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center" style={{color: '#1f2937'}}>
+                      <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Довіреності ({formData.trustDocuments} шт):
+                    </span>
                     <span className="font-medium" style={{color: '#1f2937'}}>{result.trustDocumentsCost.toFixed(2)} грн</span>
                   </div>
                 )}
                 {result.packagesCost > 0 && (
-                  <div className="flex justify-between">
-                    <span style={{color: '#1f2937'}}>Пакети:</span>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center" style={{color: '#1f2937'}}>
+                      <svg className="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                      Пакети ({formData.packages} шт):
+                    </span>
                     <span className="font-medium" style={{color: '#1f2937'}}>{result.packagesCost.toFixed(2)} грн</span>
                   </div>
                 )}
@@ -398,7 +465,7 @@ IBAN: ${paymentDetails.iban}
 
               <div className="flex space-x-2 pt-2">
                 <button 
-                  className="btn-primary text-sm w-full"
+                  className="btn-primary text-sm w-full btn-animated"
                   onClick={() => copyToClipboard(`
 Розрахунок вартості оренди сейфу:
 
@@ -431,7 +498,7 @@ IBAN: ${paymentDetails.iban}
 
         {/* Налаштування реквізитів - тільки для адміністраторів */}
         {isAdmin && (
-          <div className="calculator-card">
+          <div className="calculator-card transform transition-all duration-700 hover:scale-105 hover:shadow-xl animate-slideInUp">
             <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>⚙️ Налаштування реквізитів</h2>
           
           <div className="space-y-4">
@@ -566,7 +633,7 @@ IBAN: ${paymentDetails.iban}
                 
                 <div className="flex space-x-2 pt-2">
                   <button 
-                    className="btn-primary text-sm w-full"
+                    className="btn-primary text-sm w-full btn-animated"
                     onClick={() => copyToClipboard(`
 Реквізити для оплати:
 
@@ -670,6 +737,15 @@ IBAN: ${paymentDetails.iban}
         </div>
       </div>
     </div>
+
+    {/* Notification */}
+    <Notification
+      isOpen={notification.isOpen}
+      title={notification.title}
+      message={notification.message}
+      type={notification.type}
+      onClose={() => setNotification(prev => ({ ...prev, isOpen: false }))}
+    />
     </>
   )
 }
