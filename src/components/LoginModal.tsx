@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface LoginModalProps {
@@ -120,7 +120,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
     setLoading(false)
   }
 
-  const handleAnimatedClose = () => {
+  const handleAnimatedClose = useCallback(() => {
     setIsClosing(true)
     setTimeout(() => {
       setIsClosing(false)
@@ -130,7 +130,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
       setError('')
       onClose()
     }, 300)
-  }
+  }, [onClose])
 
   // Скидання станів при відкритті модального вікна
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen])
+  }, [isOpen, handleAnimatedClose])
 
   if (!isOpen) return null
 
