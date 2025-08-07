@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Safe {
@@ -256,7 +256,7 @@ function AddBlockModal({ onBlockAdded, onCancel }: {
 
           <div className="mb-6">
             <label htmlFor="blockDescription" className="block text-sm font-medium text-gray-700 mb-2">
-              Опис (необов'язково)
+              Опис (необов&apos;язково)
             </label>
             <textarea
               id="blockDescription"
@@ -497,15 +497,7 @@ export default function SafesPage() {
     byCategory: {}
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    calculateStats();
-  }, [safes]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // Завантажуємо блоки
       const blocksResponse = await fetch('/api/blocks');
@@ -539,7 +531,7 @@ export default function SafesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const loadTestData = () => {
     const testBlocks: Block[] = [
@@ -580,7 +572,7 @@ export default function SafesPage() {
     return sizes ? sizes[0] : '50х280х390';
   };
 
-  const calculateStats = () => {
+  const calculateStats = useCallback(() => {
     const total = safes.length;
     const available = safes.filter(s => s.status === 'available').length;
     const occupied = safes.filter(s => s.status === 'occupied').length;
@@ -609,7 +601,15 @@ export default function SafesPage() {
     });
 
     setStats({ total, available, occupied, maintenance, byCategory });
-  };
+  }, [safes, isSuperAdmin]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    calculateStats();
+  }, [calculateStats]);
 
   const toggleSafeStatus = async (safeId: number) => {
     if (!isSuperAdmin) {
@@ -945,65 +945,7 @@ export default function SafesPage() {
           <p className="text-lg text-gray-600">Перегляд та управління індивідуальними сейфами</p>
         </div>
 
-        {/* Керування блоками - тільки для супер-адміністратора */}
-        {isSuperAdmin && (
-          <div className="calculator-card transform transition-all duration-1000 animate-slideInRight mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">🏢 Керування блоками</h2>
-            
-            {/* Список існуючих блоків */}
-            {blocks.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Існуючі блоки</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {blocks.map((block, index) => {
-                    const blockSafes = safes.filter(safe => safe.block_id === block.id);
-                    return (
-                      <div
-                        key={block.id}
-                        className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-300 transform hover:scale-105"
-                        style={{ animationDelay: `${index * 100}ms` }}
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-bold text-lg text-indigo-600">{block.name}</h4>
-                            {block.description && (
-                              <p className="text-sm text-gray-600 mt-1">{block.description}</p>
-                            )}
-                          </div>
-                          {blockSafes.length === 0 && (
-                            <button
-                              onClick={() => deleteBlock(block.id)}
-                              className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
-                              title="Видалити блок"
-                            >
-                              🗑️
-                            </button>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          <div className="flex justify-between">
-                            <span>Сейфів у блоці:</span>
-                            <span className="font-medium">{blockSafes.length}</span>
-                          </div>
-                          {blockSafes.length === 0 && (
-                            <p className="text-xs text-red-500 mt-1">Можна видалити</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600">
-                Створюйте нові блоки для організації сейфів. Блоки без сейфів можна видаляти.
-              </p>
-            </div>
-          </div>
-        )}
-
+        {/* Статистика */}
         {/* Статистика */}
         <div className={`grid gap-6 mb-8 transform transition-all duration-1000 animate-slideInLeft ${isSuperAdmin ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3'}`}>
           <div className="calculator-card hover:scale-105 transition-transform duration-300">
@@ -1416,7 +1358,7 @@ export default function SafesPage() {
             
             <div className="mb-4">
               <label htmlFor="maintenance-comment" className="block text-sm font-medium text-gray-700 mb-1">
-                Причина обслуговування (обов'язково)
+                Причина обслуговування (обов&apos;язково)
               </label>
               <textarea
                 id="maintenance-comment"
