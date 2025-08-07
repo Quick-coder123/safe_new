@@ -524,6 +524,12 @@ export default function AdminPage() {
             🔑 Змінити пароль
           </button>
           <Link 
+            href="/admin/safes"
+            className="btn-primary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
+          >
+            🏧 Індивідуальні сейфи
+          </Link>
+          <Link 
             href="/"
             className="btn-secondary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
           >
