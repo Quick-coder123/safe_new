@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navigation from '@/components/Navigation'
 import LoginModal from '@/components/LoginModal'
-import { AuthProvider } from '@/contexts/AuthContext'
+import PasswordChangeModal from '@/components/PasswordChangeModal'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 
 interface LayoutWrapperProps {
   children: React.ReactNode
@@ -11,6 +12,19 @@ interface LayoutWrapperProps {
 
 function LayoutContent({ children }: LayoutWrapperProps) {
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordModalShown, setPasswordModalShown] = useState(false)
+  const { hasTempPassword, isAdmin, refreshSession } = useAuth()
+
+  // Перевіряємо чи потрібно показати модальне вікно зміни пароля
+  useEffect(() => {
+    if (isAdmin && hasTempPassword && !passwordModalShown) {
+      setShowPasswordModal(true)
+      setPasswordModalShown(true)
+    } else if (isAdmin && !hasTempPassword) {
+      setShowPasswordModal(false)
+    }
+  }, [isAdmin, hasTempPassword, passwordModalShown])
 
   const handleLoginClick = () => {
     console.log('Login button clicked')
@@ -20,6 +34,14 @@ function LayoutContent({ children }: LayoutWrapperProps) {
   const handleLoginSuccess = () => {
     setShowLoginModal(false)
     // Контекст автоматично оновиться після успішного входу
+  }
+
+  const handlePasswordChangeSuccess = async (message: string) => {
+    // Оновлюємо сесію для отримання актуального статусу пароля
+    await refreshSession()
+    setShowPasswordModal(false)
+    // Показуємо сповіщення про успішну зміну пароля
+    console.log('Password changed successfully:', message)
   }
 
   return (
@@ -32,6 +54,13 @@ function LayoutContent({ children }: LayoutWrapperProps) {
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onSuccess={handleLoginSuccess}
+      />
+      {/* Глобальне модальне вікно для примусової зміни тимчасового пароля */}
+      <PasswordChangeModal
+        isOpen={showPasswordModal}
+        onClose={() => {}} // Не дозволяємо закрити модальне вікно без зміни пароля
+        isRequired={true}
+        onSuccess={handlePasswordChangeSuccess}
       />
     </div>
   )

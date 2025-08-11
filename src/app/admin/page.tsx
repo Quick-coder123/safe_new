@@ -93,12 +93,8 @@ export default function AdminPage() {
       if (isSuperAdmin) {
         loadAdministrators()
       }
-      // Показуємо модальне вікно зміни пароля, якщо пароль тимчасовий
-      if (hasTempPassword) {
-        setShowPasswordModal(true)
-      }
     }
-  }, [admin, isSuperAdmin, hasTempPassword])
+  }, [admin, isSuperAdmin])
 
   // Показуємо форму логіну, якщо користувач не авторизований
   if (authLoading) {
@@ -954,7 +950,7 @@ export default function AdminPage() {
       <PasswordChangeModal
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
-        isRequired={hasTempPassword}
+        isRequired={false}
         onSuccess={(message) => showNotification({
           title: 'Успіх!',
           message: message,

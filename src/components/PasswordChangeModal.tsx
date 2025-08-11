@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface PasswordChangeModalProps {
   isOpen: boolean
@@ -12,6 +13,7 @@ interface PasswordChangeModalProps {
 
 export default function PasswordChangeModal({ isOpen, onClose, isRequired = false, onSuccess }: PasswordChangeModalProps) {
   const router = useRouter()
+  const { refreshSession } = useAuth()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -92,8 +94,8 @@ export default function PasswordChangeModal({ isOpen, onClose, isRequired = fals
         }
         
         if (isRequired) {
-          // Перезавантажуємо сторінку, щоб оновити стан
-          setTimeout(() => window.location.reload(), 300)
+          // Оновлюємо сесію для відображення змін в контексті
+          await refreshSession()
         }
       } else {
         setError(data.error || 'Помилка зміни пароля')
