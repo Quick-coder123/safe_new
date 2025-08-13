@@ -11,7 +11,6 @@
 SELECT table_name 
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
-  AND table_name IN ('safe_categories', 'insurance_rates', 'settings', 'change_logs');
 
 -- Перевірка початкових даних
 SELECT * FROM safe_categories;

@@ -3,7 +3,6 @@ DROP TRIGGER IF EXISTS log_safes_changes ON safes;
 DROP TRIGGER IF EXISTS log_safe_blocks_changes ON safe_blocks;
 
 -- Видалення функції логування, якщо вона існує
-DROP FUNCTION IF EXISTS log_changes();
 
 -- Переконуємося, що тригери оновлення часу працюють
 CREATE OR REPLACE FUNCTION update_safes_updated_at()

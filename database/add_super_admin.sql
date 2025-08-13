@@ -1,7 +1,6 @@
 -- S-- Додавання таблиці адміністраторів
 CREATE TABLE IF NOT EXISTS administrators (
   id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   email VARCHAR(255) NOT NULL UNIQUE,
   role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'super_admin')),
   is_temp_password BOOLEAN DEFAULT false,

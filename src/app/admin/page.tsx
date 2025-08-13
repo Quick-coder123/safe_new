@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-// import PasswordChangeModal from '@/components/PasswordChangeModal'
+import PasswordChangeModal from '@/components/PasswordChangeModal'
 import LoginForm from '@/components/LoginForm'
 import { useConfirmDialog } from '@/components/ConfirmDialog'
 import { useNotification } from '@/components/Notification'
@@ -37,14 +37,6 @@ interface Settings {
   guarantee_amount: string
 }
 
-interface ChangeLog {
-  id: number
-  table_name: string
-  action: string
-  old_values: any
-  new_values: any
-  created_at: string
-}
 
 interface Administrator {
   id: number
@@ -67,7 +59,7 @@ export default function AdminPage() {
     package_price: '',
     guarantee_amount: '',
   })
-  const [changeLogs, setChangeLogs] = useState<ChangeLog[]>([])
+  // ...видалено журнал змін...
   const [administrators, setAdministrators] = useState<Administrator[]>([])
   
   // Стан для форми додавання адміністратора
@@ -75,7 +67,7 @@ export default function AdminPage() {
   const [newAdminRole, setNewAdminRole] = useState<'admin' | 'super_admin'>('admin')
   
   // Стан для модального вікна зміни пароля
-  // const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   
   // Стан для модального вікна з новими credentials
   const [showCredentialsModal, setShowCredentialsModal] = useState(false)
@@ -157,16 +149,7 @@ export default function AdminPage() {
         setSettings(prev => ({ ...prev, ...data.settings }))
       }
 
-      // Завантаження журналу змін
-      const { data: logs } = await supabase
-        .from('change_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50)
-      
-      if (logs) {
-        setChangeLogs(logs)
-      }
+  // ...видалено завантаження журналу змін...
     } catch (error) {
       console.error('Error loading data:', error)
     }
@@ -533,7 +516,7 @@ export default function AdminPage() {
               { id: 'insurance', name: 'Страхування', icon: '🛡️' },
               { id: 'settings', name: 'Налаштування', icon: '⚙️' },
               ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори', icon: '👥' }] : []),
-              { id: 'logs', name: 'Журнал змін', icon: '📋' },
+              // ...видалено вкладку журналу змін...
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -561,14 +544,15 @@ export default function AdminPage() {
             </a>
           </div>
           <div className="flex items-center ml-auto">
-            <a
-              href="/profile"
-              className="py-2 px-4 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors duration-200 flex items-center"
-              style={{ textDecoration: 'none' }}
-            >
-              <span className="mr-2">👤</span>Профіль
-            </a>
+              <button
+                onClick={() => setShowPasswordModal(true)}
+                className="py-2 px-4 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors duration-200 flex items-center"
+                style={{ textDecoration: 'none' }}
+              >
+                  <span className="mr-2"><i className="fa fa-lock"></i></span>🔄 Змінити пароль
+              </button>
           </div>
+  <PasswordChangeModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
         </nav>
       </div>
 
@@ -883,57 +867,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {activeTab === 'logs' && (
-          <div className="animate-fadeIn">
-            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
-              <span className="mr-2">📋</span>
-              Журнал змін
-            </h2>
-            <div className="overflow-x-auto bg-white rounded-lg shadow-lg animate-slideInUp">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 animate-slideInDown">
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Дата/час</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Таблиця</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Дія</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Зміни</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white">
-                  {changeLogs.map((log, index) => (
-                    <tr 
-                      key={log.id} 
-                      className="hover:bg-blue-50 transition-all duration-300 animate-slideInUp"
-                      style={{animationDelay: `${index * 0.05}s`}}
-                    >
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900">
-                        {new Date(log.created_at).toLocaleString('uk-UA')}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-3 text-gray-900">{log.table_name}</td>
-                      <td className="border border-gray-300 px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          log.action === 'INSERT' ? 'bg-green-100 text-green-800' :
-                          log.action === 'UPDATE' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm">
-                        <details>
-                          <summary className="cursor-pointer text-blue-600 hover:text-blue-800">Деталі</summary>
-                          <pre className="mt-2 text-xs bg-gray-50 p-2 rounded text-gray-800 whitespace-pre-wrap">
-                            {JSON.stringify({ old: log.old_values, new: log.new_values }, null, 2)}
-                          </pre>
-                        </details>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+  {/* ...видалено журнал змін... */}
 
         {/* Кнопка збереження */}
         {activeTab !== 'logs' && activeTab !== 'administrators' && (

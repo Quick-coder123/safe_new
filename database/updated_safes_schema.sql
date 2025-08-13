@@ -15,7 +15,6 @@ CREATE TABLE safes (
     id SERIAL PRIMARY KEY,
     number VARCHAR(50) NOT NULL UNIQUE,
     block_id INTEGER REFERENCES safe_blocks(id) ON DELETE CASCADE,
-    category VARCHAR(10) REFERENCES safe_categories(id),
     size VARCHAR(50),
     is_occupied BOOLEAN DEFAULT FALSE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

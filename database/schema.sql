@@ -32,16 +32,6 @@ CREATE TABLE settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблиця журналу змін для аудиту
-CREATE TABLE change_logs (
-  id SERIAL PRIMARY KEY,
-  table_name VARCHAR(100) NOT NULL,
-  action VARCHAR(20) NOT NULL,
-  old_values JSONB,
-  new_values JSONB,
-  user_id UUID REFERENCES auth.users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Таблиця адміністраторів з ролями
 CREATE TABLE administrators (
@@ -96,43 +86,10 @@ CREATE TRIGGER update_safes_updated_at
   BEFORE UPDATE ON safes 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Функція для логування змін
-CREATE OR REPLACE FUNCTION log_changes()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    INSERT INTO change_logs (table_name, action, old_values, user_id)
-    VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), auth.uid());
-    RETURN OLD;
-  ELSIF TG_OP = 'UPDATE' THEN
-    INSERT INTO change_logs (table_name, action, old_values, new_values, user_id)
-    VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), auth.uid());
-    RETURN NEW;
-  ELSIF TG_OP = 'INSERT' THEN
-    INSERT INTO change_logs (table_name, action, new_values, user_id)
-    VALUES (TG_TABLE_NAME, TG_OP, row_to_json(NEW), auth.uid());
-    RETURN NEW;
-  END IF;
-  RETURN NULL;
-END;
-$$ language 'plpgsql';
 
--- Тригери для логування змін
-CREATE TRIGGER log_safe_categories_changes
-  AFTER INSERT OR UPDATE OR DELETE ON safe_categories
-  FOR EACH ROW EXECUTE FUNCTION log_changes();
 
-CREATE TRIGGER log_insurance_rates_changes
-  AFTER INSERT OR UPDATE OR DELETE ON insurance_rates
-  FOR EACH ROW EXECUTE FUNCTION log_changes();
 
-CREATE TRIGGER log_settings_changes
-  AFTER INSERT OR UPDATE OR DELETE ON settings
-  FOR EACH ROW EXECUTE FUNCTION log_changes();
 
-CREATE TRIGGER log_safes_changes
-  AFTER INSERT OR UPDATE OR DELETE ON safes
-  FOR EACH ROW EXECUTE FUNCTION log_changes();
 
 -- Початкові дані для категорій сейфів
 INSERT INTO safe_categories (id, name, rate_up_to_30, rate_31_to_90, rate_91_to_180, rate_181_to_365) VALUES
@@ -194,9 +151,6 @@ CREATE POLICY "Allow anonymous read access to insurance_rates" ON insurance_rate
 CREATE POLICY "Allow anonymous read access to settings" ON settings
   FOR SELECT USING (true);
 
--- Політики доступу для авторизованих користувачів (повний доступ)
-CREATE POLICY "Allow authenticated full access to safe_categories" ON safe_categories
-  FOR ALL USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Allow authenticated full access to insurance_rates" ON insurance_rates
   FOR ALL USING (auth.role() = 'authenticated');

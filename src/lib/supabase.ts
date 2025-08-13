@@ -110,35 +110,6 @@ export type Database = {
           updated_at?: string
         }
       }
-      change_logs: {
-        Row: {
-          id: number
-          table_name: string
-          action: string
-          old_values: any
-          new_values: any
-          user_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: number
-          table_name: string
-          action: string
-          old_values?: any
-          new_values?: any
-          user_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: number
-          table_name?: string
-          action?: string
-          old_values?: any
-          new_values?: any
-          user_id?: string
-          created_at?: string
-        }
-      }
     }
   }
 }

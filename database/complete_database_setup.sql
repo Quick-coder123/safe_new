@@ -51,35 +51,6 @@ BEFORE UPDATE ON insurance_rates
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Таблиця налаштувань системи
-CREATE TABLE IF NOT EXISTS settings (
-  id SERIAL PRIMARY KEY,
-  key VARCHAR(100) UNIQUE NOT NULL,
-  value TEXT NOT NULL,
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Тригер для settings
-CREATE TRIGGER update_settings_updated_at 
-BEFORE UPDATE ON settings 
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Таблиця адміністраторів (БЕЗ EMAIL, ТІЛЬКИ ЛОГІН)
-CREATE TABLE IF NOT EXISTS administrators (
-  id SERIAL PRIMARY KEY,
-  login VARCHAR(50) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'super_admin')),
-  is_temp_password BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  created_by INTEGER REFERENCES administrators(id)
-);
-
--- Тригер для administrators
-CREATE TRIGGER update_administrators_updated_at 
-BEFORE UPDATE ON administrators 
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Таблиця журналу змін для аудиту
