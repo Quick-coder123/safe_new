@@ -1,16 +1,18 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import PasswordChangeModal from '@/components/PasswordChangeModal'
+// import PasswordChangeModal from '@/components/PasswordChangeModal'
 import LoginForm from '@/components/LoginForm'
 import { useConfirmDialog } from '@/components/ConfirmDialog'
 import { useNotification } from '@/components/Notification'
 import CredentialsModal from '@/components/CredentialsModal'
 import ResetPasswordModal from '@/components/ResetPasswordModal'
 import Link from 'next/link'
+import AdminSafes from './safes/page'
 
 interface SafeCategory {
   id: string
@@ -73,7 +75,7 @@ export default function AdminPage() {
   const [newAdminRole, setNewAdminRole] = useState<'admin' | 'super_admin'>('admin')
   
   // Стан для модального вікна зміни пароля
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  // const [showPasswordModal, setShowPasswordModal] = useState(false)
   
   // Стан для модального вікна з новими credentials
   const [showCredentialsModal, setShowCredentialsModal] = useState(false)
@@ -486,7 +488,7 @@ export default function AdminPage() {
     }
   }
 
-  const copyResetPassword = async () => {
+  const handleCopyPassword = async () => {
     const success = await copyToClipboard(resetPasswordData.password)
     if (success) {
       showNotification({
@@ -513,64 +515,60 @@ export default function AdminPage() {
       <div className="flex justify-between items-center animate-slideInUp">
         <h1 className="text-3xl font-bold text-gray-900 animate-pulse">🛠️ Адмін-панель</h1>
         <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setShowPasswordModal(true)}
-            className="btn-secondary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
-          >
-            🔑 Змінити пароль
-          </button>
-          <Link 
-            href="/admin/safes"
-            className="btn-primary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
-          >
-            🏧 Індивідуальні сейфи
-          </Link>
-          <Link 
-            href="/"
-            className="btn-secondary text-sm transition-all duration-300 hover:scale-105 hover:shadow-md"
-          >
-            ← Повернутися до калькулятора
-          </Link>
-          <span className="text-gray-600 animate-slideInRight">
-            Вітаємо, {admin?.login}
-            {hasTempPassword && (
-              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded animate-bounce">
-                Тимчасовий пароль
-              </span>
-            )}
-          </span>
-          <button 
-            onClick={handleLogout} 
-            className="btn-secondary transition-all duration-300 hover:scale-105 hover:bg-red-500 hover:text-white"
-          >
-            Вийти
-          </button>
+          {/* Кнопка "Індивідуальні сейфи" тепер у вкладках */}
+          {hasTempPassword && (
+            <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded animate-bounce">
+              Тимчасовий пароль
+            </span>
+          )}
         </div>
       </div>
 
       {/* Вкладки */}
       <div className="border-b border-gray-200 animate-slideInUp">
         <nav className="-mb-px flex space-x-8">
-          {[
-            { id: 'categories', name: 'Категорії сейфів', icon: '📁' },
-            { id: 'insurance', name: 'Страхування', icon: '🛡️' },
-            { id: 'settings', name: 'Налаштування', icon: '⚙️' },
-            ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори', icon: '👥' }] : []),
-            { id: 'logs', name: 'Журнал змін', icon: '📋' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-2 px-4 border-b-2 font-medium text-sm transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 ${
-                activeTab === tab.id
+          <div className="flex-1 flex space-x-8">
+            {[
+              { id: 'categories', name: 'Категорії сейфів', icon: '📁' },
+              { id: 'insurance', name: 'Страхування', icon: '🛡️' },
+              { id: 'settings', name: 'Налаштування', icon: '⚙️' },
+              ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори', icon: '👥' }] : []),
+              { id: 'logs', name: 'Журнал змін', icon: '📋' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-3 border-b-2 font-normal text-xs transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-md'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="mr-2">{tab.icon}</span>
+                {tab.name}
+              </button>
+            ))}
+            <a
+              href="/admin/safes"
+              className={`py-2 px-3 border-b-2 font-normal text-xs transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 flex items-center whitespace-nowrap ${
+                (typeof window !== 'undefined' && window.location.pathname === '/admin/safes')
                   ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-md'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
               }`}
+              style={{ textDecoration: 'none' }}
             >
-              <span className="mr-2">{tab.icon}</span>
-              {tab.name}
-            </button>
-          ))}
+              <span className="mr-2">🏧</span>Індивідуальні сейфи
+            </a>
+          </div>
+          <div className="flex items-center ml-auto">
+            <a
+              href="/profile"
+              className="py-2 px-4 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors duration-200 flex items-center"
+              style={{ textDecoration: 'none' }}
+            >
+              <span className="mr-2">👤</span>Профіль
+            </a>
+          </div>
         </nav>
       </div>
 
@@ -589,6 +587,7 @@ export default function AdminPage() {
                     <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900 w-48 min-w-[12rem]">Категорія</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">до 30 днів</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">31-90 днів</th>
+
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">91-180 днів</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">181-365 днів</th>
                   </tr>
@@ -946,19 +945,10 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* Модальне вікно зміни пароля */}
-      <PasswordChangeModal
-        isOpen={showPasswordModal}
-        onClose={() => setShowPasswordModal(false)}
-        isRequired={false}
-        onSuccess={(message) => showNotification({
-          title: 'Успіх!',
-          message: message,
-          type: 'success'
-        })}
-      />
+
 
       {/* Модальне вікно з новими credentials */}
+
       <CredentialsModal
         isOpen={showCredentialsModal}
         credentials={newCredentials}
@@ -970,18 +960,17 @@ export default function AdminPage() {
         }}
       />
 
-      {/* Модальне вікно скидання пароля */}
       <ResetPasswordModal
         isOpen={showResetPasswordModal}
         adminLogin={resetPasswordData.login}
         newPassword={resetPasswordData.password}
         onClose={() => setShowResetPasswordModal(false)}
-        onCopy={copyResetPassword}
+        onCopy={handleCopyPassword}
       />
 
-      {/* Компоненти для діалогів */}
       <ConfirmDialogComponent />
       <NotificationComponent />
     </div>
   )
 }
+

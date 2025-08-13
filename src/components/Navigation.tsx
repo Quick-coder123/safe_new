@@ -8,7 +8,7 @@ interface NavigationProps {
 }
 
 export default function Navigation({ onLoginClick }: NavigationProps) {
-  const { isAdmin, isSuperAdmin } = useAuth()
+  const { isAdmin, isSuperAdmin, admin, logout } = useAuth()
   const pathname = usePathname()
 
   return (
@@ -24,7 +24,6 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
               🔐 Safe Rental Calculator
             </a>
           </div>
-          
           {/* Центральний індикатор статусу */}
           <div className="flex items-center">
             {isAdmin && (
@@ -34,7 +33,6 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
               </div>
             )}
           </div>
-          
           <div className="flex items-center space-x-4">
             {!isAdmin && pathname !== '/admin' && (
               <button 
@@ -54,6 +52,18 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
               >
                 ⚙️ Адмін-панель
               </a>
+            )}
+            {/* Вітання та кнопка Вийти */}
+            {isAdmin && (
+              <>
+                <span className="text-gray-600">Вітаємо, {admin?.login}</span>
+                <button
+                  onClick={logout}
+                  className="btn-secondary transition-all duration-300 hover:scale-105 hover:bg-red-500 hover:text-white"
+                >
+                  Вийти
+                </button>
+              </>
             )}
           </div>
         </div>
