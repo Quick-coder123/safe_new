@@ -29,9 +29,11 @@ export default function Navigation({ onLoginClick }: NavigationProps) {
           {/* Центральний індикатор статусу */}
           <div className="flex items-center">
             {isAdmin && (
-              <div className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-blue-700 text-white rounded-lg shadow-lg text-sm font-medium animate-fadeIn">
-                <span>✅</span>
-                <span>{isSuperAdmin ? 'Супер-адміністратор' : 'Адміністратор'}</span>
+              <div className="flex items-center space-x-2 px-4 py-1 bg-white/80 border border-gray-200 rounded-lg shadow-sm text-gray-700 text-sm font-medium animate-fadeIn transition-all duration-500">
+                <span className="text-lg" style={{ opacity: 0.7 }}>{isSuperAdmin ? '👑' : '🛡️'}</span>
+                <span className="font-semibold tracking-wide" style={{ opacity: 0.85 }}>
+                  {isSuperAdmin ? 'Супер-адміністратор' : 'Адміністратор'}
+                </span>
               </div>
             )}
           </div>
