@@ -693,7 +693,7 @@ IBAN: ${paymentDetails.iban}
 
           {/* Страхування ключа */}
           <div>
-            <h3 className="font-semibold mb-3" style={{color: '#1f2937'}}>Страхування ключа (грн, без ПДВ)</h3>
+            <h3 className="font-semibold mb-3" style={{color: '#1f2937'}}>Страхування ключа (грн, з ПДВ)</h3>
             <div className="space-y-2">
               {config?.insuranceRates?.map((rate, index) => (
                 <div key={index} className="flex justify-between p-2 bg-gray-50 rounded">
