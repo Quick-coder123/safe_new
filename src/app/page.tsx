@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react'
 import ConfigurationError from '@/components/ConfigurationError'
 import Notification from '@/components/Notification'
 import { 
-  calculateRental, 
+  calculateRental,
+  calculateDays,
   formatDateForInput, 
   formatDateForDisplay,
   parseDateFromInput,
+  getDaysDeclension,
   type CalculationInput,
   type CalculationResult
 } from '@/utils/calculator'
@@ -22,8 +24,8 @@ export default function HomePage() {
     category: 'I',
     contractType: 'new',
     coverageType: 'insurance',
-    startDate: new Date(),
-    endDate: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000), // +31 день
+    startDate: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())),
+    endDate: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 31)),
     penalty: 0,
     trustDocuments: 0,
     packages: 0,
@@ -102,10 +104,9 @@ export default function HomePage() {
     
     // Якщо змінюється кінцева дата, пересчитуємо термін
     if (field === 'endDate') {
-      const diffTime = date.getTime() - formData.startDate.getTime()
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-      if (diffDays > 0) {
-        setTermDays(diffDays)
+      const calculatedDays = calculateDays(formData.startDate, date)
+      if (calculatedDays > 0) {
+        setTermDays(calculatedDays)
       }
     }
   }
@@ -288,7 +289,7 @@ IBAN: ${paymentDetails.iban}
                   Кінцева дата: {formatDateForDisplay(formData.endDate)} 
                   {result && (
                     <span className="ml-2 font-medium" style={{color: '#2563eb'}}>
-                      (фактично {result.days} днів)
+                      (фактично {result.days} {getDaysDeclension(result.days)})
                     </span>
                   )}
                 </p>
@@ -406,7 +407,7 @@ IBAN: ${paymentDetails.iban}
                 </div>
                 <div className="flex justify-between">
                   <span style={{color: '#1f2937'}}>Термін оренди:</span>
-                  <span className="font-medium" style={{color: '#1f2937'}}>{result.days} днів</span>
+                  <span className="font-medium" style={{color: '#1f2937'}}>{result.days} {getDaysDeclension(result.days)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span style={{color: '#1f2937'}}>Тариф за день:</span>
@@ -475,7 +476,7 @@ IBAN: ${paymentDetails.iban}
 
 Дата початку: ${formData.startDate.toLocaleDateString('uk-UA')}
 Дата закінчення: ${formData.endDate.toLocaleDateString('uk-UA')}
-Термін оренди: ${result.days} днів
+Термін оренди: ${result.days} ${getDaysDeclension(result.days)}
 Тариф за день: ${result.safeRate.toFixed(2)} грн
 
 Деталі розрахунку:

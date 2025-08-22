@@ -44,7 +44,7 @@ export interface CalculationResult {
 export function calculateDays(startDate: Date, endDate: Date): number {
   const diffTime = endDate.getTime() - startDate.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays + 1; // +1 день згідно ТЗ
+  return diffDays + 1; // +1 день включає обидві дати (початкову і кінцеву)
 }
 
 // Функція для визначення тарифу на основі категорії та терміну
@@ -133,22 +133,43 @@ export function formatDate(date: Date): string {
 
 // Форматування дати для input[type="date"]
 export function formatDateForInput(date: Date): string {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = date.getUTCDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
 // Форматування дати для відображення (День/Місяць/Рік)
 export function formatDateForDisplay(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const year = date.getUTCFullYear();
   return `${day}/${month}/${year}`;
 }
 
 // Парсинг дати з input[type="date"]
 export function parseDateFromInput(dateString: string): Date {
   const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  // Використовуємо UTC для уникнення проблем з часовою зоною
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+// Функція для правильного відмінювання слова "день"
+export function getDaysDeclension(days: number): string {
+  const lastDigit = days % 10;
+  const lastTwoDigits = days % 100;
+  
+  // Винятки для 11-14 (завжди "днів")
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+    return 'днів';
+  }
+  
+  // Для інших чисел
+  if (lastDigit === 1) {
+    return 'день';
+  } else if (lastDigit >= 2 && lastDigit <= 4) {
+    return 'дні';
+  } else {
+    return 'днів';
+  }
 }
