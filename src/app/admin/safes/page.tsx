@@ -357,13 +357,13 @@ function EditSafeModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Редагувати сейф {safe.number}
+          Редагування чарунку № {safe.number}
         </h3>
         
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label htmlFor="edit-number" className="block text-sm font-medium text-gray-700 mb-1">
-              Номер сейфа
+              Номер чарунка
             </label>
             <input
               type="text"
@@ -395,7 +395,7 @@ function EditSafeModal({
 
           <div className="mb-6">
             <label htmlFor="edit-size" className="block text-sm font-medium text-gray-700 mb-1">
-              Розмір сейфа
+              Розмір чарунка
             </label>
             <select
               id="edit-size"
@@ -432,7 +432,7 @@ function EditSafeModal({
                 }}
                 className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
-                Відновити сейф (завершити обслуговування)
+                Відновити чарунок (завершити обслуговування)
               </button>
             </div>
           )}
@@ -942,7 +942,7 @@ export default function SafesPage() {
         {/* Заголовок */}
         <div className="text-center transform transition-all duration-1000 animate-slideInDown mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">🔐 Керування сейфами</h1>
-          <p className="text-lg text-gray-600">Перегляд та управління індивідуальними сейфами</p>
+          <p className="text-lg text-gray-600">Перегляд та управління сейфами та чарунками</p>
         </div>
 
         {/* Статистика */}
@@ -950,7 +950,7 @@ export default function SafesPage() {
         <div className={`grid gap-6 mb-8 transform transition-all duration-1000 animate-slideInLeft ${isSuperAdmin ? 'grid-cols-1 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-3'}`}>
           <div className="calculator-card hover:scale-105 transition-transform duration-300">
             <div className="text-center">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Всього сейфів</h3>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Всього чарунків</h3>
               <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
               <div className="mt-2 text-blue-500">📊</div>
             </div>
@@ -1014,7 +1014,7 @@ export default function SafesPage() {
                 {data.available > 0 && (
                   <div className="border-t pt-3">
                     <h4 className="text-sm font-medium text-green-700 mb-2">
-                      Вільні сейфи по розмірах:
+                      Вільні чарунки по розмірах:
                     </h4>
                     <div className="space-y-1 text-xs">
                       {Object.entries(data.availableBySizes).map(([size, count]) => (
@@ -1040,7 +1040,7 @@ export default function SafesPage() {
         {/* Сейфи на обслуговуванні - тільки для супер-адміністратора */}
         {isSuperAdmin && safes.filter(safe => safe.status === 'maintenance').length > 0 && (
           <div className="calculator-card transform transition-all duration-1000 animate-slideInUp mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">🔧 Сейфи на обслуговуванні</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">🔧 Чарунки на обслуговуванні</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {safes
                 .filter(safe => safe.status === 'maintenance')
@@ -1104,7 +1104,7 @@ export default function SafesPage() {
         {/* Вибір сейфу */}
         <div className="calculator-card transform transition-all duration-1000 animate-slideInRight mb-8">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">🏢 Вибір блоку</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">🏢 Вибір сейфу</h2>
             {isSuperAdmin && (
               <button
                 onClick={() => setShowAddBlockModal(true)}
@@ -1113,7 +1113,7 @@ export default function SafesPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Додати новий блок
+                Додати новий сейф
               </button>
             )}
           </div>
@@ -1149,7 +1149,7 @@ export default function SafesPage() {
         <div className="calculator-card transform transition-all duration-1000 animate-slideInUp">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900">
-              🔒 {selectedBlock ? `Сейфи блоку ${blocks.find(b => b.id === selectedBlock)?.name}` : 'Оберіть блок для перегляду сейфів'}
+              🔒 {selectedBlock ? ` ${blocks.find(b => b.id === selectedBlock)?.name}` : 'Оберіть сейф для перегляду чарунків'}
             </h2>
             {isSuperAdmin && selectedBlock && (
               <button
@@ -1159,7 +1159,7 @@ export default function SafesPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Додати сейф
+                Додати чарунок
               </button>
             )}
           </div>
@@ -1167,7 +1167,7 @@ export default function SafesPage() {
           {layoutSafes.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🔍</div>
-              <p className="text-gray-500 text-lg">Оберіть блок зі списку вище для перегляду сейфів</p>
+              <p className="text-gray-500 text-lg">Оберіть сейф зі списку вище для перегляду чарунків</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
