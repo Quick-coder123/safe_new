@@ -163,7 +163,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
   if (!isOpen) return null
 
   return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay ${isClosing ? 'closing' : ''}`}>
+    <div className={`fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 modal-overlay ${isClosing ? 'closing' : ''}`}>
       {showSuccess ? (
         // Екран успіху
         <div className="login-modal-content bounce bg-white rounded-xl p-8 w-full max-w-md mx-4 shadow-2xl">

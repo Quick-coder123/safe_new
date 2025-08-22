@@ -152,7 +152,7 @@ export default function ConfirmDialog({
 
   return (
     <div 
-      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 confirm-overlay ${isClosing ? 'closing' : ''}`}
+  className={`fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 confirm-overlay ${isClosing ? 'closing' : ''}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleAnimatedClose()

@@ -98,7 +98,7 @@ function AddSafeModal({ blocks, onSafeAdded, onCancel }: {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
+  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
       <div className="calculator-card w-full max-w-md transform transition-all duration-500 animate-slideInDown">
         <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🔒 Додати новий сейф</h3>
         
@@ -156,7 +156,7 @@ function AddSafeModal({ blocks, onSafeAdded, onCancel }: {
 
           <div className="mb-6">
             <label htmlFor="size" className="block text-sm font-medium text-gray-700 mb-1">
-              Розмір сейфа
+              Розмір чарунка
             </label>
             <select
               id="size"
@@ -234,14 +234,14 @@ function AddBlockModal({ onBlockAdded, onCancel }: {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
+  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
       <div className="calculator-card w-full max-w-md transform transition-all duration-500 animate-slideInDown">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🏢 Додати новий блок</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🏢 Додати новий сейф</h3>
         
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <label htmlFor="blockName" className="block text-sm font-medium text-gray-700 mb-2">
-              Назва блоку
+              Назва сейфу
             </label>
             <input
               type="text"
@@ -249,7 +249,7 @@ function AddBlockModal({ onBlockAdded, onCancel }: {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="form-input w-full"
-              placeholder="Введіть назву блоку (наприклад: Блок А, Корпус 1)"
+              placeholder="Введіть назву сейфу (наприклад: Сейф 01, Сейф 11)"
               required
             />
           </div>
@@ -263,7 +263,7 @@ function AddBlockModal({ onBlockAdded, onCancel }: {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="form-input w-full resize-none"
-              placeholder="Додатковий опис блоку..."
+              placeholder="Додатковий опис сейфу..."
               rows={3}
             />
           </div>
@@ -354,7 +354,7 @@ function EditSafeModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Редагування чарунку № {safe.number}
@@ -1350,7 +1350,7 @@ export default function SafesPage() {
 
       {/* Модальне вікно для коментаря обслуговування */}
       {showMaintenanceModal && maintenanceSafeId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Коментар для обслуговування

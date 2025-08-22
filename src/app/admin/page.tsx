@@ -508,7 +508,7 @@ export default function AdminPage() {
       </div>
 
       {/* Вкладки */}
-      <div className="border-b border-gray-200 animate-slideInUp">
+  <div className="border-b border-gray-200 animate-slideInUp transition-all duration-500">
         <nav className="-mb-px flex space-x-8">
           <div className="flex-1 flex space-x-8">
             {[
@@ -521,7 +521,7 @@ export default function AdminPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-3 border-b-2 font-normal text-xs transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 whitespace-nowrap ${
+                className={`py-2 px-3 border-b-2 font-normal text-xs transition-all duration-300 transform hover:scale-110 hover:-translate-y-1 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-200 ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-md'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
@@ -533,7 +533,7 @@ export default function AdminPage() {
             ))}
             <a
               href="/admin/safes"
-              className={`py-2 px-3 border-b-2 font-normal text-xs transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 flex items-center whitespace-nowrap ${
+              className={`py-2 px-3 border-b-2 font-normal text-xs transition-all duration-300 transform hover:scale-110 hover:-translate-y-1 flex items-center whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-200 ${
                 (typeof window !== 'undefined' && window.location.pathname === '/admin/safes')
                   ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-md'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
@@ -546,7 +546,7 @@ export default function AdminPage() {
           <div className="flex items-center ml-auto">
               <button
                 onClick={() => setShowPasswordModal(true)}
-                className="py-2 px-4 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors duration-200 flex items-center"
+                className="py-2 px-4 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all duration-300 transform hover:scale-110 flex items-center focus:outline-none focus:ring-2 focus:ring-blue-200"
                 style={{ textDecoration: 'none' }}
               >
                   <span className="mr-2"><i className="fa fa-lock"></i></span>🔄 Змінити пароль
@@ -557,7 +557,8 @@ export default function AdminPage() {
       </div>
 
       {/* Контент вкладок */}
-      <div className="calculator-card animate-slideInUp">
+      <div className="calculator-card transition-all duration-500 ease-in-out min-h-[300px] relative">
+        <div key={activeTab} className="transition-all duration-500 ease-in-out animate-fadeIn">
         {activeTab === 'categories' && (
           <div className="animate-fadeIn">
             <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
@@ -629,7 +630,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-
         {activeTab === 'insurance' && (
           <div className="animate-fadeIn">
             <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
@@ -676,7 +676,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-
         {activeTab === 'settings' && (
           <div className="animate-fadeIn">
             <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
@@ -735,7 +734,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-
         {activeTab === 'administrators' && isSuperAdmin && (
           <div className="animate-fadeIn">
             <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
@@ -877,6 +875,7 @@ export default function AdminPage() {
             </button>
           </div>
         )}
+        </div>
       </div>
 
 

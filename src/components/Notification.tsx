@@ -54,6 +54,9 @@ export default function Notification({
     }
   }, [isOpen, duration, handleClose])
 
+
+
+
   if (!isVisible) return null
 
   const getIcon = () => {
@@ -112,7 +115,8 @@ export default function Notification({
     }
   }
 
-  const getColorClasses = () => {
+  // Кольори
+  const colors = (() => {
     switch (type) {
       case 'success':
         return {
@@ -140,16 +144,15 @@ export default function Notification({
           button: 'text-blue-500 hover:text-blue-700'
         }
     }
-  }
+  })()
 
-  const colors = getColorClasses()
+  // Анімаційні класи
+  const animationClasses = `transition-all duration-500 ease-in-out transform ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} ${isOpen ? 'animate-fadeIn' : ''}`
 
   return (
     <div className="fixed top-4 right-4 z-50">
       <div 
-        className={`max-w-md w-full shadow-xl rounded-lg border-2 transform transition-all duration-500 bg-white animate-scaleIn ${
-          isOpen ? 'translate-x-0 opacity-100 scale-100 animate-slideInRight' : 'translate-x-full opacity-0 scale-95'
-        }`}
+        className={`max-w-md w-full shadow-xl rounded-lg border-2 bg-white animate-scaleIn ${animationClasses}`}
         style={{
           backdropFilter: 'blur(10px)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
@@ -168,8 +171,7 @@ export default function Notification({
             />
           </div>
         )}
-        
-        <div className={`p-4 rounded-lg ${colors.bg}`}>
+        <div className={`p-4 rounded-lg ${colors.bg}`}> 
           <div className="flex items-start">
             <div className="flex-shrink-0">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center animate-popIn ${

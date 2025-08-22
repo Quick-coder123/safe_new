@@ -45,7 +45,7 @@ export default function ResetPasswordModal({
   if (!isOpen) return null
 
   return (
-    <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay ${isClosing ? 'closing' : ''}`}>
+  <div className={`fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 modal-overlay ${isClosing ? 'closing' : ''}`}>
       <div className={`modal-content ${isClosing ? 'closing' : ''} bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all duration-300`}>
         {/* Header */}
         <div className="modal-header p-6 bg-gradient-to-r from-green-50 to-blue-50 border-b border-green-200 rounded-t-lg">
