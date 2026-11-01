@@ -1,37 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { SESSION_COOKIE, sessionCookieOptions, verifySessionToken } from '@/lib/session'
 
+// GET — повертає актуальні дані поточного адміністратора (або null)
 export async function GET(request: NextRequest) {
+  const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value)
+  if (!session) return NextResponse.json({ admin: null })
+
   try {
-    const sessionCookie = request.cookies.get('admin_session')
-    
-    if (!sessionCookie || !sessionCookie.value) {
-      return NextResponse.json({ admin: null })
+    const { data: admin } = await getSupabase()
+      .from('administrators')
+      .select('id, login, role, is_temp_password')
+      .eq('id', session.adminId)
+      .maybeSingle()
+
+    if (!admin) {
+      const response = NextResponse.json({ admin: null })
+      response.cookies.set(SESSION_COOKIE, '', sessionCookieOptions(0))
+      return response
     }
 
-    const adminData = JSON.parse(sessionCookie.value)
-    
-    return NextResponse.json({ admin: adminData })
-
+    return NextResponse.json({
+      admin: {
+        adminId: admin.id,
+        login: admin.login,
+        role: admin.role,
+        isTempPassword: !!admin.is_temp_password,
+      },
+    })
   } catch (error) {
-    console.error('Error getting admin session:', error)
+    console.error('Admin session error:', error)
     return NextResponse.json({ admin: null })
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const response = NextResponse.json({ success: true, message: 'Вихід виконано' })
-    
-    // Видаляємо cookie сесії
-    response.cookies.delete('admin_session')
-    
-    return response
-
-  } catch (error) {
-    console.error('Error during admin logout:', error)
-    return NextResponse.json(
-      { error: 'Помилка виходу' },
-      { status: 500 }
-    )
-  }
+// DELETE — вихід
+export async function DELETE() {
+  const response = NextResponse.json({ success: true, message: 'Вихід виконано' })
+  response.cookies.set(SESSION_COOKIE, '', sessionCookieOptions(0))
+  return response
 }

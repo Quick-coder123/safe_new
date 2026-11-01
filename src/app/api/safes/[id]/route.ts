@@ -1,13 +1,17 @@
-import { NextResponse } from 'next/server'
-import { createSupabaseClient } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
 
 // PUT - Оновити сейф
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     const { id } = await context.params
     const safeId = parseInt(id)
     const body = await request.json()
@@ -98,6 +102,7 @@ export async function PUT(
       )
     }
 
+    await logAction(auth.admin, 'safe.update', { id: safeId, number: updatedSafe.number, changes: updates })
     return NextResponse.json({ safe: updatedSafe })
   } catch (error) {
     console.error('Error updating safe:', error)
@@ -110,11 +115,13 @@ export async function PUT(
 
 // DELETE - Видалити сейф
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     const { id } = await context.params
     const safeId = parseInt(id)
 
@@ -153,6 +160,7 @@ export async function DELETE(
       )
     }
 
+    await logAction(auth.admin, 'safe.delete', { id: safeId })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting safe:', error)

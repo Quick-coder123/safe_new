@@ -1,482 +1,17 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface Safe {
-  id: number;
-  number: string;
-  category: string;
-  size: string;
-  status: 'available' | 'occupied' | 'maintenance';
-  block_id: number;
-  maintenance_comment?: string;
-}
-
-interface Block {
-  id: number;
-  name: string;
-  description?: string;
-}
-
-interface SafeStats {
-  total: number;
-  available: number;
-  occupied: number;
-  maintenance: number;
-  byCategory: {
-    [key: string]: {
-      total: number;
-      available: number;
-      occupied: number;
-      maintenance: number;
-      availableBySizes: {
-        [size: string]: number;
-      };
-    };
-  };
-}
-
-// Маппінг розмірів до категорій
-const CATEGORY_SIZES = {
-  'I': ['50х280х390', '75х280х390', '80х280х390', '100х280х390'],
-  'II': ['125х280х390', '150х280х390'],
-  'III': ['200х280х390', '250х280х390'],
-  'IV': ['300х280х390']
-};
-
-// Компонент для додавання нового сейфа
-function AddSafeModal({ blocks, onSafeAdded, onCancel }: {
-  blocks: Block[];
-  onSafeAdded: () => void;
-  onCancel: () => void;
-}) {
-  const [number, setNumber] = useState('');
-  const [category, setCategory] = useState('I');
-  const [size, setSize] = useState(CATEGORY_SIZES['I'][0]);
-  const [blockId, setBlockId] = useState<number>(blocks[0]?.id || 0);
-  const [loading, setLoading] = useState(false);
-
-  // Функція для оновлення розміру при зміні категорії
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    // Автоматично встановлюємо перший розмір нової категорії
-    const availableSizes = CATEGORY_SIZES[newCategory as keyof typeof CATEGORY_SIZES];
-    setSize(availableSizes[0]);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!number.trim()) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/safes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          number: number.trim(),
-          block_id: blockId,
-          category,
-          size: size // Використовуємо вибраний розмір
-        }),
-      });
-
-      if (response.ok) {
-        onSafeAdded();
-      } else {
-        const error = await response.json();
-        alert(`Помилка: ${error.error || 'Не вдалося створити сейф'}`);
-      }
-    } catch (error) {
-      alert('Помилка мережі');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-      <div className="calculator-card w-full max-w-md transform transition-all duration-500 animate-slideInDown">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🔒 Додати новий сейф</h3>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <label htmlFor="number" className="block text-sm font-medium text-gray-700 mb-2">
-              Номер сейфа
-            </label>
-            <input
-              type="text"
-              id="number"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              className="form-input w-full"
-              placeholder="Введіть номер сейфа"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="blockSelect" className="block text-sm font-medium text-gray-700 mb-2">
-              Блок
-            </label>
-            <select
-              id="blockSelect"
-              value={blockId}
-              onChange={(e) => setBlockId(parseInt(e.target.value))}
-              className="form-select w-full"
-              required
-            >
-              {blocks.map((block) => (
-                <option key={block.id} value={block.id}>
-                  {block.name} {block.description && `- ${block.description}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-              Категорія
-            </label>
-            <select
-              id="category"
-              value={category}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              className="form-select w-full"
-            >
-              <option value="I">Категорія I</option>
-              <option value="II">Категорія II</option>
-              <option value="III">Категорія III</option>
-              <option value="IV">Категорія IV</option>
-            </select>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="size" className="block text-sm font-medium text-gray-700 mb-1">
-              Розмір чарунка
-            </label>
-            <select
-              id="size"
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {CATEGORY_SIZES[category as keyof typeof CATEGORY_SIZES].map((sizeOption) => (
-                <option key={sizeOption} value={sizeOption}>
-                  {sizeOption}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex gap-4 mt-8">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-6 py-3 text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 font-medium"
-            >
-              Скасувати
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !number.trim()}
-              className="flex-1 btn-primary btn-animated px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-300"
-            >
-              {loading ? '⏳ Додавання...' : '✅ Додати'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// Компонент для додавання блоку
-function AddBlockModal({ onBlockAdded, onCancel }: {
-  onBlockAdded: () => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/blocks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: name.trim(),
-          description: description.trim() || undefined
-        })
-      });
-
-      if (response.ok) {
-        onBlockAdded();
-        setName('');
-        setDescription('');
-      } else {
-        const error = await response.json();
-        alert(`Помилка: ${error.error || 'Не вдалося створити блок'}`);
-      }
-    } catch (error) {
-      alert('Помилка мережі');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-      <div className="calculator-card w-full max-w-md transform transition-all duration-500 animate-slideInDown">
-        <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">🏢 Додати новий сейф</h3>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <label htmlFor="blockName" className="block text-sm font-medium text-gray-700 mb-2">
-              Назва сейфу
-            </label>
-            <input
-              type="text"
-              id="blockName"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="form-input w-full"
-              placeholder="Введіть назву сейфу (наприклад: Сейф 01, Сейф 11)"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="blockDescription" className="block text-sm font-medium text-gray-700 mb-2">
-              Опис (необов&apos;язково)
-            </label>
-            <textarea
-              id="blockDescription"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="form-input w-full resize-none"
-              placeholder="Додатковий опис сейфу..."
-              rows={3}
-            />
-          </div>
-
-          <div className="flex gap-4 mt-8">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-6 py-3 text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 font-medium"
-            >
-              Скасувати
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !name.trim()}
-              className="flex-1 btn-primary btn-animated px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-300"
-            >
-              {loading ? '⏳ Створення...' : '✅ Створити'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// Компонент для редагування сейфу
-function EditSafeModal({ 
-  safe, 
-  onSafeUpdated, 
-  onCancel,
-  onMaintenanceRequested,
-  onRestoreFromMaintenance,
-  isSuperAdmin 
-}: {
-  safe: Safe;
-  onSafeUpdated: () => void;
-  onCancel: () => void;
-  onMaintenanceRequested: (safeId: number) => void;
-  onRestoreFromMaintenance: (safeId: number) => void;
-  isSuperAdmin: boolean;
-}) {
-  const [number, setNumber] = useState(safe.number);
-  const [category, setCategory] = useState(safe.category);
-  const [size, setSize] = useState(safe.size);
-  const [loading, setLoading] = useState(false);
-
-  // Функція для оновлення розміру при зміні категорії
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    // Автоматично встановлюємо перший розмір нової категорії тільки якщо поточний розмір не підходить
-    const availableSizes = CATEGORY_SIZES[newCategory as keyof typeof CATEGORY_SIZES];
-    if (!availableSizes.includes(size)) {
-      setSize(availableSizes[0]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!number.trim()) return;
-
-    setLoading(true);
-    try {
-      // Відправити оновлення на сервер
-      const response = await fetch(`/api/safes/${safe.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          number: number.trim(),
-          category,
-          size
-        }),
-      });
-
-      if (response.ok) {
-        onSafeUpdated();
-      } else {
-        const error = await response.json();
-        alert(`Помилка: ${error.error || 'Не вдалося оновити сейф'}`);
-      }
-    } catch (error) {
-      alert('Помилка мережі');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-  <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Редагування чарунку № {safe.number}
-        </h3>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="edit-number" className="block text-sm font-medium text-gray-700 mb-1">
-              Номер чарунка
-            </label>
-            <input
-              type="text"
-              id="edit-number"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Введіть номер сейфа"
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">
-              Категорія
-            </label>
-            <select
-              id="edit-category"
-              value={category}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="I">Категорія I</option>
-              <option value="II">Категорія II</option>
-              <option value="III">Категорія III</option>
-              <option value="IV">Категорія IV</option>
-            </select>
-          </div>
-
-          <div className="mb-6">
-            <label htmlFor="edit-size" className="block text-sm font-medium text-gray-700 mb-1">
-              Розмір чарунка
-            </label>
-            <select
-              id="edit-size"
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {CATEGORY_SIZES[category as keyof typeof CATEGORY_SIZES].map((sizeOption) => (
-                <option key={sizeOption} value={sizeOption}>
-                  {sizeOption}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Відображення коментаря для сейфів на обслуговуванні - тільки для супер-адміністратора */}
-          {isSuperAdmin && safe.status === 'maintenance' && safe.maintenance_comment && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <label className="block text-sm font-medium text-yellow-800 mb-1">
-                Коментар до обслуговування:
-              </label>
-              <p className="text-sm text-yellow-700">{safe.maintenance_comment}</p>
-            </div>
-          )}
-
-          {/* Кнопка відновлення з обслуговування - тільки для супер-адміністратора */}
-          {isSuperAdmin && safe.status === 'maintenance' && (
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  onRestoreFromMaintenance(safe.id);
-                  onCancel();
-                }}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Відновити чарунок (завершити обслуговування)
-              </button>
-            </div>
-          )}
-
-          {/* Кнопка на обслуговування - тільки для супер-адміністратора і якщо сейф не на обслуговуванні */}
-          {isSuperAdmin && safe.status !== 'maintenance' && (
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  onMaintenanceRequested(safe.id);
-                  onCancel();
-                }}
-                className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-              >
-                Відправити на обслуговування
-              </button>
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Скасувати
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !number.trim()}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Збереження...' : 'Зберегти'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+import { Safe, Block, SafeStats, CATEGORY_SIZES } from './_components/types';
+import AddSafeModal from './_components/AddSafeModal';
+import AddBlockModal from './_components/AddBlockModal';
+import EditSafeModal from './_components/EditSafeModal';
 
 export default function SafesPage() {
-  const { isSuperAdmin } = useAuth();
+  const router = useRouter();
+  const { isSuperAdmin, isAdmin, loading: authLoading } = useAuth();
+  const [loadError, setLoadError] = useState('');
   const [safes, setSafes] = useState<Safe[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
@@ -521,51 +56,18 @@ export default function SafesPage() {
           maintenance_comment: safe.maintenance_comment
         })) || [];
         setSafes(convertedSafes);
+        setLoadError('');
       } else {
-        // Якщо API не працює, використовуємо тестові дані
-        loadTestData();
+        const data = await safesResponse.json().catch(() => ({}));
+        setLoadError(data.error || `Не вдалося завантажити сейфи (HTTP ${safesResponse.status})`);
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      loadTestData();
+      setLoadError('Не вдалося завантажити сейфи: помилка з\'єднання');
     } finally {
       setLoading(false);
     }
   }, []);
-
-  const loadTestData = () => {
-    const testBlocks: Block[] = [
-      { id: 1, name: 'Блок A', description: 'Перший блок сейфів' },
-      { id: 2, name: 'Блок B', description: 'Другий блок сейфів' },
-      { id: 3, name: 'Блок C', description: 'Третій блок сейфів' }
-    ];
-
-    const testSafes: Safe[] = [
-      // Блок A
-      { id: 1, number: 'A001', category: 'I', size: '50х280х390', status: 'available', block_id: 1 },
-      { id: 2, number: 'A002', category: 'I', size: '75х280х390', status: 'occupied', block_id: 1 },
-      { id: 3, number: 'A003', category: 'II', size: '125х280х390', status: 'available', block_id: 1 },
-      { id: 4, number: 'A004', category: 'II', size: '150х280х390', status: 'maintenance', block_id: 1, maintenance_comment: 'Потрібна заміна замка' },
-      { id: 5, number: 'A005', category: 'III', size: '200х280х390', status: 'occupied', block_id: 1 },
-      { id: 6, number: 'A006', category: 'III', size: '250х280х390', status: 'available', block_id: 1 },
-      { id: 7, number: 'A007', category: 'IV', size: '300х280х390', status: 'available', block_id: 1 },
-      
-      // Блок B
-      { id: 8, number: 'B001', category: 'I', size: '80х280х390', status: 'available', block_id: 2 },
-      { id: 9, number: 'B002', category: 'I', size: '100х280х390', status: 'occupied', block_id: 2 },
-      { id: 10, number: 'B003', category: 'II', size: '125х280х390', status: 'available', block_id: 2 },
-      { id: 11, number: 'B004', category: 'III', size: '200х280х390', status: 'maintenance', block_id: 2, maintenance_comment: 'Планове технічне обслуговування системи відкриття' },
-      { id: 12, number: 'B005', category: 'IV', size: '300х280х390', status: 'occupied', block_id: 2 },
-      
-      // Блок C
-      { id: 13, number: 'C001', category: 'I', size: '50х280х390', status: 'available', block_id: 3 },
-      { id: 14, number: 'C002', category: 'II', size: '150х280х390', status: 'available', block_id: 3 },
-      { id: 15, number: 'C003', category: 'III', size: '250х280х390', status: 'occupied', block_id: 3 }
-    ];
-
-    setBlocks(testBlocks);
-    setSafes(testSafes);
-  };
 
   const getSizeForCategory = (category: string): string => {
     const sizes = CATEGORY_SIZES[category as keyof typeof CATEGORY_SIZES];
@@ -604,8 +106,13 @@ export default function SafesPage() {
   }, [safes, isSuperAdmin]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAdmin) {
+      router.push('/');
+      return;
+    }
     loadData();
-  }, [loadData]);
+  }, [loadData, authLoading, isAdmin, router]);
 
   useEffect(() => {
     calculateStats();
@@ -925,12 +432,28 @@ export default function SafesPage() {
 
   const layoutSafes = createVerticalLayout(filteredSafes);
 
-  if (loading) {
+  if (authLoading || !isAdmin || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Завантаження сейфів...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{loadError}</p>
+          <button
+            className="btn-primary"
+            onClick={() => { setLoading(true); loadData(); }}
+          >
+            Спробувати ще раз
+          </button>
         </div>
       </div>
     );

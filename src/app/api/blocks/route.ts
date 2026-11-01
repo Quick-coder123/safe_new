@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server'
-import { createSupabaseClient } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
 
 // GET - Отримати всі блоки
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     
     const { data: blocks, error } = await supabase
       .from('safe_blocks')
@@ -30,9 +34,11 @@ export async function GET() {
 }
 
 // POST - Створити новий блок
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     const { name, description } = await request.json()
 
     if (!name || !name.trim()) {
@@ -76,6 +82,7 @@ export async function POST(request: Request) {
       )
     }
 
+    await logAction(auth.admin, 'block.create', { id: newBlock.id, name: newBlock.name })
     return NextResponse.json(newBlock)
   } catch (error) {
     console.error('Error creating block:', error)

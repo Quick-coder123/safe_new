@@ -1,13 +1,17 @@
-import { NextResponse } from 'next/server'
-import { createSupabaseClient } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
 
 // PUT - Оновити блок
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     const { id } = await context.params
     const blockId = parseInt(id)
     const body = await request.json()
@@ -76,6 +80,7 @@ export async function PUT(
       )
     }
 
+    await logAction(auth.admin, 'block.update', { id: blockId, name: updatedBlock.name })
     return NextResponse.json({ block: updatedBlock })
   } catch (error) {
     console.error('Error updating block:', error)
@@ -88,11 +93,13 @@ export async function PUT(
 
 // DELETE - Видалити блок
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     const { id } = await context.params
     const blockId = parseInt(id)
 
@@ -153,6 +160,7 @@ export async function DELETE(
       )
     }
 
+    await logAction(auth.admin, 'block.delete', { id: blockId })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting block:', error)

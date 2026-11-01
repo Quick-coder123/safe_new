@@ -1,131 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { validateAdminSession } from '@/lib/auth'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
+import { loadConfig } from '@/lib/settingsRepo'
+import { SETTING_DESCRIPTIONS, type SettingKey } from '@/config/defaults'
+import { validateSettingsPayload } from '@/utils/settingsValidation'
+import { diffConfig } from '@/utils/configDiff'
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 Save-settings API: Starting request...')
-    
-    // Перевірка environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseKey || supabaseUrl === 'https://placeholder.supabase.co') {
-      console.error('❌ Environment variables not configured:', { supabaseUrl, keyPresent: !!supabaseKey })
-      return NextResponse.json({ 
-        error: 'Database configuration error',
-        details: 'Environment variables not properly configured'
-      }, { status: 500 })
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+
+    const validation = validateSettingsPayload(await request.json().catch(() => null))
+    if (!validation.ok) {
+      return NextResponse.json(
+        { error: 'Перевірте введені дані', details: validation.errors },
+        { status: 400 }
+      )
+    }
+    const { categories, insuranceRates, settings } = validation.value
+    const supabase = getSupabase()
+    const before = await loadConfig()
+
+    // 1. Категорії: upsert + видалення тих, яких більше немає у списку
+    const { error: catError } = await supabase.from('safe_categories').upsert(categories, { onConflict: 'id' })
+    if (catError) throw new Error(`categories: ${catError.message}`)
+
+    const keepIds = new Set(categories.map(c => c.id))
+    const removedIds = before.categories.map(c => c.id).filter(id => !keepIds.has(id))
+    if (removedIds.length) {
+      const { error } = await supabase.from('safe_categories').delete().in('id', removedIds)
+      if (error) throw new Error(`categories delete: ${error.message}`)
     }
 
-    const { categories, insuranceRates, settings } = await request.json()
-    console.log('📝 Received data:', { categoriesCount: categories?.length, insuranceRatesCount: insuranceRates?.length, settingsKeys: Object.keys(settings || {}) })
-
-    // Перевірка аутентифікації через cookies
-    const cookieHeader = request.headers.get('cookie')
-    const sessionValidation = await validateAdminSession(cookieHeader)
-    
-    if (!sessionValidation.isValid) {
-      console.log('❌ Authentication failed:', sessionValidation.error)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // 2. Страхування: повна заміна (дані вже провалідовані)
+    const { error: delError } = await supabase.from('insurance_rates').delete().gte('id', 0)
+    if (delError) throw new Error(`insurance delete: ${delError.message}`)
+    if (insuranceRates.length) {
+      const { error } = await supabase.from('insurance_rates').insert(insuranceRates)
+      if (error) throw new Error(`insurance insert: ${error.message}`)
     }
 
-    console.log('🔐 Authentication successful, proceeding with updates...')
-
-    // Оновлення категорій сейфів
-    if (categories && Array.isArray(categories)) {
-      console.log('📂 Updating categories...')
-      for (const category of categories) {
-        const { error } = await supabase
-          .from('safe_categories')
-          .upsert({
-            id: category.id,
-            name: category.name,
-            rate_up_to_30: category.rates.up_to_30,
-            rate_31_to_90: category.rates.from_31_to_90,
-            rate_91_to_180: category.rates.from_91_to_180,
-            rate_181_to_365: category.rates.from_181_to_365,
-          }, {
-            onConflict: 'id'
-          })
-
-        if (error) {
-          console.error('Error updating category:', error)
-          return NextResponse.json({ error: 'Failed to update categories' }, { status: 500 })
-        }
-      }
+    // 3. Налаштування (key-value)
+    const rows = Object.entries(settings).map(([key, value]) => ({
+      key,
+      value,
+      description: SETTING_DESCRIPTIONS[key as SettingKey] ?? '',
+    }))
+    if (rows.length) {
+      const { error } = await supabase.from('settings').upsert(rows, { onConflict: 'key' })
+      if (error) throw new Error(`settings: ${error.message}`)
     }
 
-    // Оновлення тарифів страхування
-    if (insuranceRates && Array.isArray(insuranceRates)) {
-      // Спочатку видаляємо всі існуючі записи
-      await supabase.from('insurance_rates').delete().gte('id', 0)
+    const changes = diffConfig(before, { categories, insuranceRates, settings })
+    if (changes.length) await logAction(auth.admin, 'settings.update', { changes })
 
-      // Потім додаємо нові
-      for (const rate of insuranceRates) {
-        const { error } = await supabase
-          .from('insurance_rates')
-          .insert({
-            min_days: rate.min_days,
-            max_days: rate.max_days,
-            price: rate.price,
-          })
-
-        if (error) {
-          console.error('Error updating insurance rate:', error)
-          return NextResponse.json({ error: 'Failed to update insurance rates' }, { status: 500 })
-        }
-      }
-    }
-
-    // Оновлення налаштувань (key-value структура)
-    if (settings && typeof settings === 'object') {
-      console.log('⚙️ Updating settings (key-value structure):', settings)
-      
-      try {
-        // Перетворюємо пряму структуру в key-value записи
-        for (const [key, value] of Object.entries(settings)) {
-          const { error } = await supabase
-            .from('settings')
-            .upsert({
-              key,
-              value: String(value),
-              description: getSettingDescription(key)
-            }, { onConflict: 'key' })
-
-          if (error) {
-            console.error(`❌ Error saving setting ${key}:`, error)
-          } else {
-            console.log(`✅ Setting ${key} saved successfully`)
-          }
-        }
-      } catch (settingsError) {
-        console.error('❌ Settings save exception:', settingsError)
-        console.log('⚠️ Settings update failed, but continuing with other updates')
-      }
-    }
-
-    console.log('✅ All updates completed successfully')
-    return NextResponse.json({ success: true })
-
+    return NextResponse.json({ success: true, changes: changes.length })
   } catch (error) {
-    console.error('❌ Unexpected error:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('save-settings error:', error)
+    return NextResponse.json({ error: 'Не вдалося зберегти налаштування' }, { status: 500 })
   }
-}
-
-function getSettingDescription(key: string): string {
-  const descriptions: Record<string, string> = {
-    trust_document_price: 'Вартість довіреності в грн',
-    package_price: 'Вартість пакету в грн',
-    guarantee_amount: 'Сума грошового забезпечення в грн',
-    company_name: 'Назва компанії',
-    company_edrpou: 'Код ЄДРПОУ',
-    company_iban: 'IBAN рахунок',
-    payment_purpose: 'Призначення платежу',
-  }
-  return descriptions[key] || ''
 }

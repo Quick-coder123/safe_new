@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server'
-import { createSupabaseClient } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
 
 // GET - Отримати всі сейфи з інформацією про блоки
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     
     const { data: safes, error } = await supabase
       .from('safes')
@@ -34,9 +38,11 @@ export async function GET() {
 }
 
 // POST - Створити новий сейф
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseClient()
+    const auth = await requireAdmin(request)
+    if (!auth.ok) return auth.response
+    const supabase = getSupabase()
     const { number, block_id, category, size } = await request.json()
 
     if (!number || !number.trim()) {
@@ -109,6 +115,7 @@ export async function POST(request: Request) {
       )
     }
 
+    await logAction(auth.admin, 'safe.create', { id: newSafe.id, number: newSafe.number })
     return NextResponse.json({ safe: newSafe })
   } catch (error) {
     console.error('Error creating safe:', error)

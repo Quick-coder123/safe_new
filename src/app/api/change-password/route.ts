@@ -1,78 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
+import { createSessionToken, sessionCookieOptions, SESSION_COOKIE } from '@/lib/session'
+import { validatePasswordStrength } from '@/utils/validation'
 
 export async function PUT(request: NextRequest) {
   try {
-    // Отримуємо сесію з cookies
-    const sessionCookie = request.cookies.get('admin_session')
-    
-    if (!sessionCookie || !sessionCookie.value) {
-      return NextResponse.json({ error: 'Не авторизований' }, { status: 401 })
+    const auth = await requireAdmin(request, { allowTempPassword: true })
+    if (!auth.ok) return auth.response
+
+    const { currentPassword, newPassword } = await request.json().catch(() => ({}))
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
+      return NextResponse.json({ error: "Поточний та новий пароль є обов'язковими" }, { status: 400 })
     }
 
-    const adminData = JSON.parse(sessionCookie.value)
-    
-    const { currentPassword, newPassword } = await request.json()
-
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json({ error: 'Поточний та новий пароль є обов\'язковими' }, { status: 400 })
+    const strength = validatePasswordStrength(newPassword)
+    if (!strength.valid) return NextResponse.json({ error: strength.error }, { status: 400 })
+    if (currentPassword === newPassword) {
+      return NextResponse.json({ error: 'Новий пароль має відрізнятися від поточного' }, { status: 400 })
     }
 
-    // Знаходимо адміністратора по ID
-    const { data: admin, error: adminError } = await supabase
+    const supabase = getSupabase()
+    const { data: admin } = await supabase
       .from('administrators')
-      .select('*')
-      .eq('id', adminData.adminId)
+      .select('password_hash')
+      .eq('id', auth.admin.id)
       .single()
 
-    if (adminError || !admin) {
-      return NextResponse.json({ error: 'Адміністратор не знайдений' }, { status: 404 })
-    }
-
-    // Перевіряємо поточний пароль
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, admin.password_hash)
-
-    if (!isCurrentPasswordValid) {
+    if (!admin || !(await bcrypt.compare(currentPassword, admin.password_hash))) {
       return NextResponse.json({ error: 'Неправильний поточний пароль' }, { status: 400 })
     }
 
-    // Хешуємо новий пароль
-    const newPasswordHash = await bcrypt.hash(newPassword, 10)
-
-    // Оновлюємо пароль і статус тимчасового пароля
     const { error: updateError } = await supabase
       .from('administrators')
       .update({
-        password_hash: newPasswordHash,
+        password_hash: await bcrypt.hash(newPassword, 10),
         is_temp_password: false,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', adminData.adminId)
+      .eq('id', auth.admin.id)
 
     if (updateError) {
-      console.error('Error updating password:', updateError)
+      console.error('Error updating password:', updateError.message)
       return NextResponse.json({ error: 'Помилка оновлення пароля' }, { status: 500 })
     }
 
-    // Оновлюємо сесію (прибираємо статус тимчасового пароля)
-    const updatedSessionData = {
-      ...adminData,
-      isTempPassword: false
-    }
+    await logAction(auth.admin, 'admin.password_change')
 
     const response = NextResponse.json({ success: true, message: 'Пароль успішно змінено' })
-    
-    // Оновлюємо cookie сесії
-    response.cookies.set('admin_session', JSON.stringify(updatedSessionData), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7 // 7 днів
+    const token = await createSessionToken({
+      adminId: auth.admin.id,
+      login: auth.admin.login,
+      role: auth.admin.role,
+      isTempPassword: false,
     })
-
+    response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions())
     return response
-
   } catch (error) {
     console.error('Error changing password:', error)
     return NextResponse.json({ error: 'Внутрішня помилка сервера' }, { status: 500 })

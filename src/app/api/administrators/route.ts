@@ -1,174 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { validateAdminSession } from '@/lib/auth'
+import bcrypt from 'bcryptjs'
+import { getSupabase } from '@/lib/supabase'
+import { requireAdmin } from '@/lib/auth'
+import { logAction } from '@/lib/audit'
+import { generateTempPassword } from '@/lib/password'
+import { LOGIN_PATTERN } from '@/utils/validation'
 
+const PUBLIC_FIELDS = 'id, login, role, is_temp_password, created_at'
+
+// GET — список адміністраторів (без хешів паролів)
 export async function GET(request: NextRequest) {
-  try {
-    console.log('🔍 Administrators API: Starting request...')
-    
-    // Перевірка environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseKey || supabaseUrl === 'https://placeholder.supabase.co') {
-      console.error('❌ Environment variables not configured:', { supabaseUrl, keyPresent: !!supabaseKey })
-      return NextResponse.json({ 
-        error: 'Database configuration error',
-        details: 'Environment variables not properly configured'
-      }, { status: 500 })
-    }
+  const auth = await requireAdmin(request, { superAdmin: true })
+  if (!auth.ok) return auth.response
 
-    // Перевірка аутентифікації через cookies
-    const cookieHeader = request.headers.get('cookie')
-    console.log('🍪 API: Cookie header:', cookieHeader ? `Present (${cookieHeader.length} chars)` : 'Missing')
-    
-    const sessionValidation = await validateAdminSession(cookieHeader)
-    
-    if (!sessionValidation.isValid) {
-      console.log('❌ API: Authentication failed:', sessionValidation.error)
-      return NextResponse.json({ 
-        error: 'Unauthorized',
-        details: sessionValidation.error 
-      }, { status: 401 })
-    }
+  const { data, error } = await getSupabase()
+    .from('administrators')
+    .select(PUBLIC_FIELDS)
+    .order('created_at', { ascending: false })
 
-    console.log('🔐 API: Authentication successful for admin:', sessionValidation.admin?.login)
-
-    console.log('📊 Fetching administrators from database...')
-    
-    // Отримуємо список адміністраторів
-    const { data: administrators, error } = await supabase
-      .from('administrators')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('❌ Database error:', error)
-      return NextResponse.json({ 
-        error: 'Database query failed', 
-        details: error.message,
-        code: error.code 
-      }, { status: 500 })
-    }
-
-    console.log('✅ Successfully fetched administrators:', administrators?.length || 0)
-    return NextResponse.json({ administrators })
-  } catch (error) {
-    console.error('❌ Error fetching administrators:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+  if (error) {
+    console.error('Administrators GET error:', error.message)
+    return NextResponse.json({ error: 'Помилка бази даних' }, { status: 500 })
   }
+  return NextResponse.json({ administrators: data ?? [] })
 }
 
+// POST — створити адміністратора з тимчасовим паролем (генерується на сервері)
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireAdmin(request, { superAdmin: true })
+    if (!auth.ok) return auth.response
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-    
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { login, role } = await request.json().catch(() => ({}))
+    if (typeof login !== 'string' || !LOGIN_PATTERN.test(login.trim())) {
+      return NextResponse.json(
+        { error: 'Логін: 3–50 символів, лише латиниця, цифри, "_" та "-"' },
+        { status: 400 }
+      )
     }
+    const finalRole = role === 'super_admin' ? 'super_admin' : 'admin'
+    const supabase = getSupabase()
 
-    // Перевіряємо, чи є поточний користувач супер-адміністратором
-    const { data: currentAdmin } = await supabase
+    const { data: existing } = await supabase
       .from('administrators')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!currentAdmin || currentAdmin.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
+      .select('id')
+      .eq('login', login.trim())
+      .maybeSingle()
+    if (existing) {
+      return NextResponse.json({ error: 'Адміністратор з таким логіном вже існує' }, { status: 409 })
     }
 
-    const { email, role } = await request.json()
-
-    // Генеруємо тимчасовий пароль
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '!'
-    
-    // Створюємо нового користувача через звичайну реєстрацію
-    const { data: newUser, error: createError } = await supabase.auth.signUp({
-      email,
-      password: tempPassword,
-    })
-
-    if (createError) {
-      throw createError
-    }
-
-    if (!newUser.user) {
-      throw new Error('Failed to create user')
-    }
-
-    // Додаємо в таблицю адміністраторів
-    const { error: insertError } = await supabase
+    const temporaryPassword = generateTempPassword()
+    const { data: created, error } = await supabase
       .from('administrators')
       .insert({
-        user_id: newUser.user.id,
-        email,
-        role,
+        login: login.trim(),
+        password_hash: await bcrypt.hash(temporaryPassword, 10),
+        role: finalRole,
         is_temp_password: true,
-        created_by: user.id
       })
+      .select(PUBLIC_FIELDS)
+      .single()
 
-    if (insertError) {
-      throw insertError
+    if (error) {
+      console.error('Administrators POST error:', error.message)
+      return NextResponse.json({ error: 'Не вдалося створити адміністратора' }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      tempPassword,
-      message: `Адміністратор створений. Тимчасовий пароль: ${tempPassword}` 
-    })
+    await logAction(auth.admin, 'admin.create', { targetId: created.id, login: created.login, role: finalRole })
+    return NextResponse.json({ success: true, administrator: created, temporaryPassword })
   } catch (error) {
-    console.error('Error creating administrator:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    // Перевірка аутентифікації через cookies
-    const cookieHeader = request.headers.get('cookie')
-    const sessionValidation = await validateAdminSession(cookieHeader)
-    
-    if (!sessionValidation.isValid) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const currentAdmin = sessionValidation.admin
-
-    // Перевіряємо, чи є поточний користувач супер-адміністратором
-    if (!currentAdmin || currentAdmin.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-    }
-
-    const { administratorId } = await request.json()
-
-    // Не дозволяємо видаляти самого себе
-    if (currentAdmin.id === administratorId) {
-      return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 })
-    }
-
-    // Видаляємо адміністратора
-    const { error: deleteError } = await supabase
-      .from('administrators')
-      .delete()
-      .eq('id', administratorId)
-
-    if (deleteError) {
-      throw deleteError
-    }
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error deleting administrator:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Administrators POST exception:', error)
+    return NextResponse.json({ error: 'Внутрішня помилка сервера' }, { status: 500 })
   }
 }

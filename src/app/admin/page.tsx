@@ -3,16 +3,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import PasswordChangeModal from '@/components/PasswordChangeModal'
-import LoginForm from '@/components/LoginForm'
 import { useConfirmDialog } from '@/components/ConfirmDialog'
 import { useNotification } from '@/components/Notification'
-import CredentialsModal from '@/components/CredentialsModal'
-import ResetPasswordModal from '@/components/ResetPasswordModal'
-import Link from 'next/link'
-import AdminSafes from './safes/page'
+import { validateIban, validateEdrpou, normalizeIban } from '@/utils/validation'
+import AdministratorsTab from './_components/AdministratorsTab'
+import ChangeLogTab from './_components/ChangeLogTab'
 
 interface SafeCategory {
   id: string
@@ -35,17 +32,13 @@ interface Settings {
   trust_document_price: string
   package_price: string
   guarantee_amount: string
+  company_name: string
+  company_edrpou: string
+  company_iban: string
+  payment_purpose: string
+  insurance_payment_url: string
 }
 
-
-interface Administrator {
-  id: number
-  login: string
-  role: 'admin' | 'super_admin'
-  is_temp_password: boolean
-  created_at: string
-  created_by: string
-}
 
 export default function AdminPage() {
   const router = useRouter()
@@ -58,37 +51,33 @@ export default function AdminPage() {
     trust_document_price: '',
     package_price: '',
     guarantee_amount: '',
+    company_name: '',
+    company_edrpou: '',
+    company_iban: '',
+    payment_purpose: '',
+    insurance_payment_url: '',
   })
-  // ...видалено журнал змін...
-  const [administrators, setAdministrators] = useState<Administrator[]>([])
-  
-  // Стан для форми додавання адміністратора
-  const [newAdminLogin, setNewAdminLogin] = useState('')
-  const [newAdminRole, setNewAdminRole] = useState<'admin' | 'super_admin'>('admin')
+  const [saving, setSaving] = useState(false)
+  const [newCategory, setNewCategory] = useState({ id: '', name: '' })
   
   // Стан для модального вікна зміни пароля
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   
-  // Стан для модального вікна з новими credentials
-  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
-  const [newCredentials, setNewCredentials] = useState({ login: '', password: '' })
-
-  // Стан для модального вікна скидання пароля
-  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false)
-  const [resetPasswordData, setResetPasswordData] = useState({ login: '', password: '' })
-
   // Хуки для красивих діалогів
   const { showConfirm, ConfirmDialogComponent } = useConfirmDialog()
   const { showNotification, NotificationComponent } = useNotification()
 
   useEffect(() => {
-    if (admin) {
+    if (admin && !hasTempPassword) {
       loadData()
-      if (isSuperAdmin) {
-        loadAdministrators()
-      }
     }
-  }, [admin, isSuperAdmin])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin, hasTempPassword])
+
+  useEffect(() => {
+    if (!authLoading && !isAdmin) router.push('/')
+  }, [authLoading, isAdmin, router])
+
 
   // Показуємо форму логіну, якщо користувач не авторизований
   if (authLoading) {
@@ -100,8 +89,7 @@ export default function AdminPage() {
   }
 
   if (!isAdmin) {
-    // Перенаправляємо на головну сторінку, де буде можливість увійти через модальне вікно
-    router.push('/')
+    // Перенаправлення на головну (див. useEffect вище), де можна увійти через модальне вікно
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center">
@@ -122,11 +110,9 @@ export default function AdminPage() {
 
   const loadData = async () => {
     try {
-      const response = await fetch('/api/get-settings-temp')
+      const response = await fetch('/api/get-settings', { cache: 'no-store' })
       const data = await response.json()
-      
-      console.log('� Loaded data from get-settings:', data)
-      
+
       if (data.categories) {
         const formattedCategories = data.categories.map((cat: any) => ({
           id: cat.id,
@@ -149,15 +135,62 @@ export default function AdminPage() {
         setSettings(prev => ({ ...prev, ...data.settings }))
       }
 
-  // ...видалено завантаження журналу змін...
     } catch (error) {
       console.error('Error loading data:', error)
     }
   }
 
+  const addCategory = () => {
+    const id = newCategory.id.trim()
+    const name = newCategory.name.trim()
+    if (!id || !name) {
+      showNotification({ title: 'Помилка', message: 'Вкажіть код і назву категорії', type: 'warning' })
+      return
+    }
+    if (categories.some(c => c.id === id)) {
+      showNotification({ title: 'Помилка', message: `Категорія з кодом "${id}" вже існує`, type: 'warning' })
+      return
+    }
+    setCategories(prev => [...prev, {
+      id, name, rates: { up_to_30: 0, from_31_to_90: 0, from_91_to_180: 0, from_181_to_365: 0 },
+    }])
+    setNewCategory({ id: '', name: '' })
+  }
+
+  const removeCategory = async (categoryId: string) => {
+    const confirmed = await showConfirm({
+      title: 'Видалити категорію?',
+      message: 'Категорію буде видалено після натискання «Зберегти зміни».',
+      type: 'warning',
+      confirmText: 'Видалити',
+      cancelText: 'Скасувати',
+    })
+    if (confirmed) setCategories(prev => prev.filter(c => c.id !== categoryId))
+  }
+
+  const addInsuranceRate = () => {
+    const lastMax = insuranceRates.reduce((max, r) => Math.max(max, r.max_days), 0)
+    setInsuranceRates(prev => [...prev, { min_days: lastMax + 1, max_days: Math.min(lastMax + 90, 365), price: 0 }])
+  }
+
+  const removeInsuranceRate = (index: number) => {
+    setInsuranceRates(prev => prev.filter((_, i) => i !== index))
+  }
+
   const saveData = async () => {
+    if (settings.company_iban && !validateIban(settings.company_iban).valid) {
+      setActiveTab('settings')
+      showNotification({ title: 'Помилка', message: validateIban(settings.company_iban).error || 'Невірний IBAN', type: 'error' })
+      return
+    }
+    if (settings.company_edrpou && !validateEdrpou(settings.company_edrpou).valid) {
+      setActiveTab('settings')
+      showNotification({ title: 'Помилка', message: validateEdrpou(settings.company_edrpou).error || 'Невірний ЄДРПОУ', type: 'error' })
+      return
+    }
+    setSaving(true)
     try {
-      const response = await fetch('/api/save-settings-temp', {
+      const response = await fetch('/api/save-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,8 +203,6 @@ export default function AdminPage() {
       })
 
       const data = await response.json()
-      
-      console.log('� Save response:', data)
 
       if (response.ok) {
         showNotification({
@@ -183,10 +214,9 @@ export default function AdminPage() {
       } else {
         showNotification({
           title: 'Помилка збереження',
-          message: data.error || 'Невідома помилка',
+          message: Array.isArray(data.details) ? data.details.join('\n') : (data.error || 'Невідома помилка'),
           type: 'error'
         })
-        console.error('Save error details:', data)
       }
     } catch (error) {
       console.error('Error saving data:', error)
@@ -195,6 +225,8 @@ export default function AdminPage() {
         message: 'Не вдалося зберегти дані',
         type: 'error'
       })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -210,282 +242,6 @@ export default function AdminPage() {
     setInsuranceRates(prev => prev.map((rate, i) => 
       i === index ? { ...rate, [field]: value } : rate
     ))
-  }
-
-  const loadAdministrators = async () => {
-    try {
-      // ТИМЧАСОВО: Використовуємо temp endpoint без аутентифікації
-      const response = await fetch('/api/administrators-temp')
-
-      if (response.ok) {
-        const { administrators } = await response.json()
-        console.log('👥 Loaded administrators:', administrators)
-        setAdministrators(administrators)
-      }
-    } catch (error) {
-      console.error('Error loading administrators:', error)
-    }
-  }
-
-  const createAdministrator = async () => {
-    if (!newAdminLogin.trim()) {
-      showNotification({
-        title: 'Помилка',
-        message: 'Введіть логін адміністратора',
-        type: 'warning'
-      })
-      return
-    }
-
-    try {
-      // Генеруємо тимчасовий пароль
-      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
-
-      const response = await fetch('/api/administrators-temp/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          login: newAdminLogin,
-          password: tempPassword,
-        }),
-      })
-
-      if (response.ok) {
-        // Показуємо модальне вікно з credentials
-        setNewCredentials({ login: newAdminLogin, password: tempPassword })
-        setShowCredentialsModal(true)
-        setNewAdminLogin('')
-        setNewAdminRole('admin')
-        loadAdministrators()
-      } else {
-        const { error } = await response.json()
-        showNotification({
-          title: 'Помилка створення',
-          message: error || 'Не вдалося створити адміністратора',
-          type: 'error'
-        })
-      }
-    } catch (error) {
-      console.error('Error creating administrator:', error)
-      showNotification({
-        title: 'Помилка створення',
-        message: 'Не вдалося створити адміністратора',
-        type: 'error'
-      })
-    }
-  }
-
-  const deleteAdministrator = async (administratorId: number) => {
-    const confirmed = await showConfirm({
-      title: 'Підтвердження видалення',
-      message: 'Ви впевнені, що хочете видалити цього адміністратора? Ця дія не може бути скасована.',
-      type: 'error',
-      confirmText: 'Видалити',
-      cancelText: 'Скасувати'
-    })
-
-    if (!confirmed) return
-
-    try {
-      const response = await fetch(`/api/administrators-temp/${administratorId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        showNotification({
-          title: 'Успіх!',
-          message: 'Адміністратора успішно видалено!',
-          type: 'success'
-        })
-        loadAdministrators()
-      } else {
-        const { error } = await response.json()
-        showNotification({
-          title: 'Помилка видалення',
-          message: error || 'Не вдалося видалити адміністратора',
-          type: 'error'
-        })
-      }
-    } catch (error) {
-      console.error('Error deleting administrator:', error)
-      showNotification({
-        title: 'Помилка видалення',
-        message: 'Не вдалося видалити адміністратора',
-        type: 'error'
-      })
-    }
-  }
-
-  const updateAdministratorRole = async (administratorId: number, role: string) => {
-    try {
-      const response = await fetch(`/api/administrators-temp/${administratorId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ role }),
-      })
-
-      if (response.ok) {
-        showNotification({
-          title: 'Успіх!',
-          message: 'Роль адміністратора успішно оновлено!',
-          type: 'success'
-        })
-        loadAdministrators()
-      } else {
-        const { error } = await response.json()
-        showNotification({
-          title: 'Помилка оновлення',
-          message: error || 'Не вдалося оновити роль',
-          type: 'error'
-        })
-      }
-    } catch (error) {
-      console.error('Error updating administrator role:', error)
-      showNotification({
-        title: 'Помилка оновлення',
-        message: 'Не вдалося оновити роль',
-        type: 'error'
-      })
-    }
-  }
-
-  const resetAdministratorPassword = async (administratorId: number) => {
-    const confirmed = await showConfirm({
-      title: 'Підтвердження скидання пароля',
-      message: 'Ви впевнені, що хочете скинути пароль цього адміністратора?',
-      type: 'warning',
-      confirmText: 'Скинути',
-      cancelText: 'Скасувати'
-    })
-
-    if (!confirmed) return
-
-    try {
-      const response = await fetch('/api/reset-password-temp', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ administratorId }),
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        
-        // Знаходимо адміністратора за ID для отримання логіна
-        const admin = administrators.find(a => a.id === administratorId)
-        
-        // Показуємо модальне вікно з новим паролем
-        setResetPasswordData({ 
-          login: admin?.login || 'Адміністратор', 
-          password: result.temporaryPassword || '' 
-        })
-        setShowResetPasswordModal(true)
-        
-        loadAdministrators()
-      } else {
-        const { error } = await response.json()
-        showNotification({
-          title: 'Помилка скидання',
-          message: error || 'Не вдалося скинути пароль',
-          type: 'error'
-        })
-      }
-    } catch (error) {
-      console.error('Error resetting password:', error)
-      showNotification({
-        title: 'Помилка скидання',
-        message: 'Не вдалося скинути пароль',
-        type: 'error'
-      })
-    }
-  }
-
-  // Функції для копіювання credentials
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch (err) {
-      console.error('Failed to copy: ', err)
-      return false
-    }
-  }
-
-  const copyLogin = async () => {
-    const success = await copyToClipboard(newCredentials.login)
-    if (success) {
-      showNotification({
-        title: 'Скопійовано!',
-        message: 'Логін скопійовано до буферу обміну!',
-        type: 'success'
-      })
-    } else {
-      showNotification({
-        title: 'Помилка',
-        message: 'Не вдалося скопіювати логін',
-        type: 'error'
-      })
-    }
-  }
-
-  const copyPassword = async () => {
-    const success = await copyToClipboard(newCredentials.password)
-    if (success) {
-      showNotification({
-        title: 'Скопійовано!',
-        message: 'Пароль скопійовано до буферу обміну!',
-        type: 'success'
-      })
-    } else {
-      showNotification({
-        title: 'Помилка',
-        message: 'Не вдалося скопіювати пароль',
-        type: 'error'
-      })
-    }
-  }
-
-  const copyBoth = async () => {
-    const both = `Логін: ${newCredentials.login}\nПароль: ${newCredentials.password}`
-    const success = await copyToClipboard(both)
-    if (success) {
-      showNotification({
-        title: 'Скопійовано!',
-        message: 'Логін та пароль скопійовано до буферу обміну!',
-        type: 'success'
-      })
-    } else {
-      showNotification({
-        title: 'Помилка',
-        message: 'Не вдалося скопіювати дані',
-        type: 'error'
-      })
-    }
-  }
-
-  const handleCopyPassword = async () => {
-    const success = await copyToClipboard(resetPasswordData.password)
-    if (success) {
-      showNotification({
-        title: 'Скопійовано!',
-        message: 'Новий пароль скопійовано до буферу обміну!',
-        type: 'success'
-      })
-    } else {
-      showNotification({
-        title: 'Помилка',
-        message: 'Не вдалося скопіювати пароль',
-        type: 'error'
-      })
-    }
   }
 
   const updateSetting = (key: string, value: string) => {
@@ -516,7 +272,7 @@ export default function AdminPage() {
               { id: 'insurance', name: 'Страхування', icon: '🛡️' },
               { id: 'settings', name: 'Налаштування', icon: '⚙️' },
               ...(isSuperAdmin ? [{ id: 'administrators', name: 'Адміністратори', icon: '👥' }] : []),
-              // ...видалено вкладку журналу змін...
+              { id: 'logs', name: 'Журнал змін', icon: '📜' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -575,6 +331,7 @@ export default function AdminPage() {
 
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">91-180 днів</th>
                     <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900">181-365 днів</th>
+                    <th className="border border-gray-300 px-4 py-3 text-center font-bold text-gray-900"></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -623,10 +380,47 @@ export default function AdminPage() {
                           onChange={(e) => updateCategory(category.id, 'from_181_to_365', parseFloat(e.target.value))}
                         />
                       </td>
+                      <td className="border border-gray-300 px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeCategory(category.id)}
+                          className="btn-danger text-xs"
+                          title="Видалити категорію"
+                        >
+                          🗑️
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-4 flex flex-wrap items-end gap-3">
+              <div>
+                <label className="form-label">Код</label>
+                <input
+                  type="text"
+                  className="form-input w-28"
+                  placeholder="V"
+                  maxLength={10}
+                  value={newCategory.id}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, id: e.target.value }))}
+                />
+              </div>
+              <div className="flex-1 min-w-[12rem]">
+                <label className="form-label">Назва</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="V категорія"
+                  maxLength={100}
+                  value={newCategory.name}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <button type="button" onClick={addCategory} className="btn-secondary">
+                ➕ Додати категорію
+              </button>
             </div>
           </div>
         )}
@@ -640,7 +434,7 @@ export default function AdminPage() {
               {insuranceRates.map((rate, index) => (
                 <div 
                   key={index} 
-                  className="grid grid-cols-3 gap-4 p-4 border rounded-lg shadow-md hover:shadow-lg transition-all duration-300 animate-slideInUp bg-white"
+                  className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 border rounded-lg shadow-md hover:shadow-lg transition-all duration-300 animate-slideInUp bg-white"
                   style={{animationDelay: `${index * 0.1}s`}}
                 >
                   <div>
@@ -671,8 +465,17 @@ export default function AdminPage() {
                       onChange={(e) => updateInsuranceRate(index, 'price', parseFloat(e.target.value))}
                     />
                   </div>
+                  <div className="flex items-end">
+                    <button type="button" onClick={() => removeInsuranceRate(index)} className="btn-danger text-xs w-full">
+                      🗑️ Видалити
+                    </button>
+                  </div>
                 </div>
               ))}
+              <button type="button" onClick={addInsuranceRate} className="btn-secondary">
+                ➕ Додати діапазон
+              </button>
+              <p className="text-sm text-gray-600">Діапазони не повинні перетинатися; максимальний термін — 365 днів.</p>
             </div>
           </div>
         )}
@@ -732,146 +535,90 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+
+            <h3 className="text-lg font-semibold mt-8 mb-4 flex items-center">
+              <span className="mr-2">🏦</span>
+              Реквізити для оплати
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-group">
+                <label className="form-label">Отримувач (назва / ПІБ)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  maxLength={200}
+                  value={settings.company_name}
+                  onChange={(e) => updateSetting('company_name', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Код ЄДРПОУ</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="form-input"
+                  maxLength={10}
+                  placeholder="12345678"
+                  value={settings.company_edrpou}
+                  onChange={(e) => updateSetting('company_edrpou', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                />
+                {settings.company_edrpou && !validateEdrpou(settings.company_edrpou).valid && (
+                  <p className="text-sm text-red-600 mt-1">{validateEdrpou(settings.company_edrpou).error}</p>
+                )}
+              </div>
+              <div className="form-group md:col-span-2">
+                <label className="form-label">IBAN</label>
+                <input
+                  type="text"
+                  className="form-input font-mono"
+                  placeholder="UA213223130000026007233566001"
+                  value={settings.company_iban}
+                  onChange={(e) => updateSetting('company_iban', normalizeIban(e.target.value).slice(0, 29))}
+                />
+                {settings.company_iban && (
+                  validateIban(settings.company_iban).valid
+                    ? <p className="text-sm text-green-700 mt-1">✓ IBAN коректний</p>
+                    : <p className="text-sm text-red-600 mt-1">{validateIban(settings.company_iban).error}</p>
+                )}
+              </div>
+              <div className="form-group md:col-span-2">
+                <label className="form-label">Призначення платежу</label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  maxLength={500}
+                  value={settings.payment_purpose}
+                  onChange={(e) => updateSetting('payment_purpose', e.target.value)}
+                />
+              </div>
+              <div className="form-group md:col-span-2">
+                <label className="form-label">Посилання для оплати страхування ключа</label>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://..."
+                  value={settings.insurance_payment_url}
+                  onChange={(e) => updateSetting('insurance_payment_url', e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         )}
         {activeTab === 'administrators' && isSuperAdmin && (
-          <div className="animate-fadeIn">
-            <h2 className="text-xl font-semibold mb-4 flex items-center animate-slideInLeft">
-              <span className="mr-2">👥</span>
-              Управління адміністраторами
-            </h2>
-            
-            {/* Форма додавання нового адміністратора */}
-            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-6 shadow-md animate-slideInUp">
-              <h3 className="text-lg font-medium mb-3 flex items-center">
-                <span className="mr-2">➕</span>
-                Додати нового адміністратора
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="animate-slideInUp" style={{animationDelay: '0.1s'}}>
-                  <label className="form-label">Логін</label>
-                  <input
-                    type="text"
-                    className="form-input transition-all duration-300 hover:scale-105 focus:scale-105"
-                    value={newAdminLogin}
-                    onChange={(e) => setNewAdminLogin(e.target.value)}
-                    placeholder="admin_user"
-                    pattern="[a-zA-Z0-9_-]+"
-                    title="Логін може містити тільки букви, цифри, підкреслення та дефіси"
-                  />
-                </div>
-                <div className="animate-slideInUp" style={{animationDelay: '0.2s'}}>
-                  <label className="form-label">Роль</label>
-                  <select
-                    className="form-select animate-slideInUp transition-all duration-300 hover:scale-105 focus:scale-105"
-                    value={newAdminRole}
-                    onChange={(e) => setNewAdminRole(e.target.value as 'admin' | 'super_admin')}
-                  >
-                    <option value="admin">Адміністратор</option>
-                    <option value="super_admin">Супер-адміністратор</option>
-                  </select>
-                </div>
-                <div className="flex items-end animate-slideInUp" style={{animationDelay: '0.3s'}}>
-                  <button
-                    onClick={createAdministrator}
-                    className="btn-primary w-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-                  >
-                    Додати адміністратора
-                  </button>
-                </div>
-              </div>
-              <div className="mt-3 text-sm text-gray-600">
-                <p><strong>Адміністратор:</strong> може змінювати тарифи та бачити блок налаштувань реквізитів</p>
-                <p><strong>Супер-адміністратор:</strong> має всі права адміністратора + може управляти іншими адміністраторами</p>
-              </div>
-            </div>
-
-            {/* Список адміністраторів */}
-            <div className="overflow-x-auto bg-white rounded-lg shadow-lg animate-slideInUp">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gradient-to-r from-gray-100 to-gray-200 animate-slideInDown">
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Логін</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Роль</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Статус пароля</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Створено</th>
-                    <th className="border border-gray-300 px-4 py-3 text-left font-bold text-gray-900">Дії</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white">
-                  {administrators.map((adminItem, index) => (
-                    <tr 
-                      key={adminItem.id} 
-                      className="hover:bg-blue-50 transition-all duration-300 animate-slideInUp"
-                      style={{animationDelay: `${index * 0.1}s`}}
-                    >
-                      <td className="border border-gray-300 px-4 py-3 text-gray-900">
-                        {adminItem.login}
-                        {adminItem.id === admin?.adminId && (
-                          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">Ви</span>
-                        )}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-3">
-                        <select
-                          className="form-select text-sm"
-                          value={adminItem.role}
-                          onChange={(e) => updateAdministratorRole(adminItem.id, e.target.value)}
-                          disabled={adminItem.id === admin?.adminId}
-                        >
-                          <option value="admin">Адміністратор</option>
-                          <option value="super_admin">Супер-адміністратор</option>
-                        </select>
-                      </td>
-                      <td className="border border-gray-300 px-4 py-3">
-                        {adminItem.is_temp_password ? (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                            Тимчасовий
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                            Власний
-                          </span>
-                        )}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900">
-                        {new Date(adminItem.created_at).toLocaleDateString('uk-UA')}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-3">
-                        <div className="flex gap-2">
-                          {adminItem.id !== admin?.adminId && (
-                            <>
-                              <button
-                                onClick={() => resetAdministratorPassword(adminItem.id)}
-                                className="btn-secondary text-xs transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                                title="Скинути пароль"
-                              >
-                                🔄 Скинути пароль
-                              </button>
-                              <button
-                                onClick={() => deleteAdministrator(adminItem.id)}
-                                className="btn-danger text-xs transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-                              >
-                                🗑️ Видалити
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AdministratorsTab
+            currentAdminId={admin?.adminId}
+            showConfirm={showConfirm}
+            showNotification={showNotification}
+          />
         )}
 
-  {/* ...видалено журнал змін... */}
+        {activeTab === 'logs' && <ChangeLogTab />}
 
         {/* Кнопка збереження */}
         {activeTab !== 'logs' && activeTab !== 'administrators' && (
           <div className="mt-6">
-            <button onClick={saveData} className="btn-primary">
-              Зберегти зміни
+            <button onClick={saveData} className="btn-primary" disabled={saving}>
+              {saving ? 'Збереження…' : 'Зберегти зміни'}
             </button>
           </div>
         )}
@@ -879,27 +626,6 @@ export default function AdminPage() {
       </div>
 
 
-
-      {/* Модальне вікно з новими credentials */}
-
-      <CredentialsModal
-        isOpen={showCredentialsModal}
-        credentials={newCredentials}
-        onClose={() => setShowCredentialsModal(false)}
-        onCopy={(type) => {
-          if (type === 'login') copyLogin()
-          else if (type === 'password') copyPassword()
-          else if (type === 'both') copyBoth()
-        }}
-      />
-
-      <ResetPasswordModal
-        isOpen={showResetPasswordModal}
-        adminLogin={resetPasswordData.login}
-        newPassword={resetPasswordData.password}
-        onClose={() => setShowResetPasswordModal(false)}
-        onCopy={handleCopyPassword}
-      />
 
       <ConfirmDialogComponent />
       <NotificationComponent />

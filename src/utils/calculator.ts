@@ -38,12 +38,24 @@ export interface CalculationResult {
   penalty: number;
   totalCost: number;
   isWeekend: boolean;
+  /** Термін перевищує максимальний (365 днів) */
+  exceedsMaxTerm: boolean;
+  /** Обрано страхування, але для такого терміну немає тарифу */
+  insuranceUnavailable: boolean;
+}
+
+export const MAX_TERM_DAYS = 365;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Округлення грошових сум до копійок (уникаємо 0.1 + 0.2 = 0.30000000000000004). */
+export function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 // Функція для обчислення кількості днів
 export function calculateDays(startDate: Date, endDate: Date): number {
-  const diffTime = endDate.getTime() - startDate.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // Дати зберігаються як UTC-північ; округлення захищає від зсувів на годину
+  const diffDays = Math.round((endDate.getTime() - startDate.getTime()) / DAY_MS);
   return diffDays + 1; // +1 день включає обидві дати (початкову і кінцеву)
 }
 
@@ -68,10 +80,24 @@ export function getInsurancePrice(days: number, insuranceRates: InsuranceRate[])
   return rate ? rate.price : 0;
 }
 
-// Перевірка чи є дата вихідним днем
+// Перевірка чи є дата вихідним днем (дати в калькуляторі — UTC-північ)
 export function isWeekend(date: Date): boolean {
-  const day = date.getDay();
+  const day = date.getUTCDay();
   return day === 0 || day === 6; // неділя або субота
+}
+
+/** Найближчий робочий день, не раніше за вказану дату. */
+export function nextWorkingDay(date: Date): Date {
+  let result = new Date(date.getTime());
+  while (isWeekend(result)) {
+    result = new Date(result.getTime() + DAY_MS);
+  }
+  return result;
+}
+
+/** Дата закінчення за датою початку та терміном (включно з обома днями). */
+export function addTermDays(startDate: Date, days: number): Date {
+  return new Date(startDate.getTime() + (Math.max(days, 1) - 1) * DAY_MS);
 }
 
 // Основна функція калькуляції
@@ -87,12 +113,13 @@ export function calculateRental(input: CalculationInput, config: {
 }): CalculationResult {
   const days = calculateDays(input.startDate, input.endDate);
   const safeRate = getSafeRate(input.category, days, config.categories);
-  const safeCost = safeRate * days;
+  const safeCost = roundMoney(safeRate * days);
   
   // Страхування ключа (тільки для страхування)
   const insurance = input.coverageType === 'insurance' 
     ? getInsurancePrice(days, config.insuranceRates) 
     : 0;
+  const insuranceUnavailable = input.coverageType === 'insurance' && insurance === 0 && days > 0;
   
   // Грошове забезпечення (тільки для нових договорів з грошовим забезпеченням)
   const guaranteeAmount = parseFloat(config.settings.guarantee_amount) || 0;
@@ -103,10 +130,11 @@ export function calculateRental(input: CalculationInput, config: {
   const trustDocumentPrice = parseFloat(config.settings.trust_document_price) || 0;
   const packagePrice = parseFloat(config.settings.package_price) || 0;
   
-  const trustDocumentsCost = input.trustDocuments * trustDocumentPrice;
-  const packagesCost = input.packages * packagePrice;
+  const trustDocumentsCost = roundMoney(Math.max(0, input.trustDocuments) * trustDocumentPrice);
+  const packagesCost = roundMoney(Math.max(0, input.packages) * packagePrice);
+  const penalty = roundMoney(Math.max(0, input.penalty || 0));
   
-  const totalCost = safeCost + insurance + guarantee + trustDocumentsCost + packagesCost + input.penalty;
+  const totalCost = roundMoney(safeCost + insurance + guarantee + trustDocumentsCost + packagesCost + penalty);
   
   return {
     days,
@@ -116,9 +144,11 @@ export function calculateRental(input: CalculationInput, config: {
     guarantee,
     trustDocumentsCost,
     packagesCost,
-    penalty: input.penalty,
+    penalty,
     totalCost,
     isWeekend: isWeekend(input.endDate),
+    exceedsMaxTerm: days > MAX_TERM_DAYS,
+    insuranceUnavailable,
   };
 }
 

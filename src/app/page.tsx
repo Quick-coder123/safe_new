@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import ConfigurationError from '@/components/ConfigurationError'
 import Notification from '@/components/Notification'
 import { 
   calculateRental,
   calculateDays,
+  addTermDays,
+  nextWorkingDay,
+  MAX_TERM_DAYS,
   formatDateForInput, 
   formatDateForDisplay,
   parseDateFromInput,
@@ -18,7 +20,7 @@ import { useConfig } from '@/hooks/useConfig'
 
 export default function HomePage() {
   const { isAdmin } = useAuth()
-  const { config, loading: configLoading, error: configError } = useConfig()
+  const { config, demo, loading: configLoading, error: configError, reload } = useConfig()
   
   const [formData, setFormData] = useState<CalculationInput>({
     category: 'I',
@@ -34,13 +36,15 @@ export default function HomePage() {
   const [termDays, setTermDays] = useState<number>(31)
 
   const [result, setResult] = useState<CalculationResult | null>(null)
-  const [paymentDetails, setPaymentDetails] = useState({
-    recipient: '',
-    edrpou: '',
-    iban: '',
-    purpose: 'Оплата за оренду індивідуального сейфу',
-  })
-  const [insurancePaymentUrl, setInsurancePaymentUrl] = useState('')
+  // Реквізити беруться з налаштувань (редагуються в адмін-панелі)
+  const paymentDetails = {
+    recipient: config?.settings?.company_name || '',
+    edrpou: config?.settings?.company_edrpou || '',
+    iban: config?.settings?.company_iban || '',
+    purpose: config?.settings?.payment_purpose || 'Оплата за оренду індивідуального сейфу',
+  }
+  const insurancePaymentUrl = config?.settings?.insurance_payment_url || ''
+  const paymentDetailsComplete = !!(paymentDetails.recipient && paymentDetails.edrpou && paymentDetails.iban)
 
   // Стан для notification
   const [notification, setNotification] = useState<{
@@ -95,7 +99,7 @@ export default function HomePage() {
     
     // Якщо змінюється початкова дата, пересчитуємо кінцеву на основі терміну
     if (field === 'startDate') {
-      const endDate = new Date(date.getTime() + (termDays - 1) * 24 * 60 * 60 * 1000)
+      const endDate = addTermDays(date, termDays)
       setFormData(prev => ({
         ...prev,
         endDate: endDate
@@ -111,27 +115,23 @@ export default function HomePage() {
     }
   }
 
-  const handleTermDaysChange = (days: number) => {
+  const handleTermDaysChange = (rawDays: number) => {
+    const days = Math.min(Math.max(Math.floor(rawDays) || 1, 1), MAX_TERM_DAYS)
     setTermDays(days)
     // Автоматично розраховуємо кінцеву дату
-    const endDate = new Date(formData.startDate.getTime() + (days - 1) * 24 * 60 * 60 * 1000)
+    const endDate = addTermDays(formData.startDate, days)
     setFormData(prev => ({
       ...prev,
       endDate: endDate
     }))
   }
 
-  const generatePaymentDetails = () => {
-    if (!result) return
-
-    const paymentAmount = result.totalCost - result.insurance
-    const updatedPurpose = `${paymentDetails.purpose}. Сума: ${paymentAmount.toFixed(2)} грн`
-    
-    showNotification('Реквізити для оплати', `Отримувач: ${paymentDetails.recipient}
-Код ЄДРПОУ: ${paymentDetails.edrpou}
-IBAN: ${paymentDetails.iban}
-Призначення платежу: ${updatedPurpose}
-Сума: ${paymentAmount.toFixed(2)} грн`, 'info')
+  // Переносимо дату закінчення на найближчий робочий день
+  const moveEndDateToWorkingDay = () => {
+    const endDate = nextWorkingDay(formData.endDate)
+    setFormData(prev => ({ ...prev, endDate }))
+    const days = calculateDays(formData.startDate, endDate)
+    if (days > 0) setTermDays(days)
   }
 
   const copyToClipboard = (text: string) => {
@@ -167,12 +167,12 @@ IBAN: ${paymentDetails.iban}
   }
 
   // Показуємо помилку якщо конфігурація не завантажилась
-  if (configError) {
+  if (configError || !config) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-[60vh]">
         <div className="text-center">
-          <p className="text-red-600 mb-4">Помилка завантаження конфігурації: {configError}</p>
-          <p className="text-gray-600">Використовуються базові налаштування</p>
+          <p className="text-red-600 mb-4">Не вдалося завантажити актуальні тарифи{configError ? `: ${configError}` : ''}</p>
+          <button className="btn-primary" onClick={reload}>Спробувати ще раз</button>
         </div>
       </div>
     )
@@ -180,8 +180,12 @@ IBAN: ${paymentDetails.iban}
 
   return (
     <>
-      <ConfigurationError />
       <div className="space-y-6 animate-fadeIn">
+      {demo && (
+        <div className="alert-warning">
+          ⚠️ Демо-режим: Supabase не налаштовано, показано тарифи за замовчуванням із ТЗ.
+        </div>
+      )}
       {/* Заголовок з навігацією */}
       <div className="relative">        
         {/* Основний заголовок */}
@@ -386,8 +390,30 @@ IBAN: ${paymentDetails.iban}
             <div className="space-y-4">
               {/* Попередження про вихідний день */}
               {result.isWeekend && (
+                <div className="alert-warning flex flex-wrap items-center justify-between gap-2">
+                  <span>⚠️ Увага! Дата закінчення припадає на вихідний день!</span>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    onClick={moveEndDateToWorkingDay}
+                  >
+                    Перенести на {formatDateForDisplay(nextWorkingDay(formData.endDate))}
+                  </button>
+                </div>
+              )}
+              {result.days < 1 && (
                 <div className="alert-warning">
-                  ⚠️ Увага! Дата закінчення припадає на вихідний день!
+                  ⚠️ Дата закінчення раніше за дату початку.
+                </div>
+              )}
+              {result.exceedsMaxTerm && (
+                <div className="alert-warning">
+                  ⚠️ Термін {result.days} {getDaysDeclension(result.days)} перевищує максимальний ({MAX_TERM_DAYS} днів). Оформіть договір на коротший строк з подальшою пролонгацією.
+                </div>
+              )}
+              {result.insuranceUnavailable && !result.exceedsMaxTerm && result.days > 0 && (
+                <div className="alert-warning">
+                  ⚠️ Для терміну {result.days} {getDaysDeclension(result.days)} немає тарифу страхування ключа. Перевірте таблицю страхування в адмін-панелі.
                 </div>
               )}
 
@@ -503,68 +529,15 @@ IBAN: ${paymentDetails.iban}
             <h2 className="text-xl font-semibold mb-4" style={{color: '#1f2937'}}>⚙️ Налаштування реквізитів</h2>
           
           <div className="space-y-4">
-            <div className="form-group">
-              <label className="form-label">Назва отримувача</label>
-              <input 
-                type="text"
-                className="form-input"
-                value={paymentDetails.recipient}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, recipient: e.target.value}))}
-                placeholder="Назва отримувача"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Код ЄДРПОУ</label>
-              <input 
-                type="text"
-                className="form-input"
-                value={paymentDetails.edrpou}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 10)
-                  setPaymentDetails(prev => ({...prev, edrpou: value}))
-                }}
-                placeholder="1234567890"
-                maxLength={10}
-                pattern="[0-9]{10}"
-                title="ЄДРПОУ повинен містити рівно 10 цифр"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">IBAN</label>
-              <input 
-                type="text"
-                className="form-input"
-                value={paymentDetails.iban}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, iban: e.target.value}))}
-                placeholder="UA123456789012345678901234567"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label">Призначення платежу</label>
-              <textarea 
-                className="form-input"
-                rows={2}
-                value={paymentDetails.purpose}
-                onChange={(e) => setPaymentDetails(prev => ({...prev, purpose: e.target.value}))}
-                placeholder="Опис призначення платежу"
-              />
-            </div>
-            
-            {formData.coverageType === 'insurance' && (
-              <div className="form-group">
-                <label className="form-label">Посилання для оплати страхування ключа</label>
-                <input 
-                  type="url"
-                  className="form-input"
-                  value={insurancePaymentUrl}
-                  onChange={(e) => setInsurancePaymentUrl(e.target.value)}
-                  placeholder="https://..."
-                />
+            {!paymentDetailsComplete && (
+              <div className="alert-warning">
+                Реквізити не заповнені. Вкажіть отримувача, ЄДРПОУ та IBAN в{' '}
+                <a href="/admin" className="underline">адмін-панелі → Налаштування</a>.
               </div>
             )}
+            <p className="text-sm" style={{color: '#6b7280'}}>
+              Реквізити редагуються в <a href="/admin" className="underline">адмін-панелі</a>.
+            </p>
 
             {/* Кнопка оформлення страхування */}
             {formData.coverageType === 'insurance' && (
@@ -581,7 +554,7 @@ IBAN: ${paymentDetails.iban}
             )}
 
             {/* Реквізити для оплати */}
-            {result && (
+            {result && paymentDetailsComplete && (
               <div className="bg-blue-50 rounded-lg p-4 space-y-3 mt-6">
                 <h3 className="font-semibold" style={{color: '#1e40af'}}>📋 Реквізити для оплати</h3>
                 <div className="space-y-2 text-sm">
@@ -694,7 +667,7 @@ IBAN: ${paymentDetails.iban}
 
           {/* Страхування ключа */}
           <div>
-            <h3 className="font-semibold mb-3" style={{color: '#1f2937'}}>Страхування ключа (грн, з ПДВ)</h3>
+            <h3 className="font-semibold mb-3" style={{color: '#1f2937'}}>Страхування ключа (грн, без ПДВ)</h3>
             <div className="space-y-2">
               {config?.insuranceRates?.map((rate, index) => (
                 <div key={index} className="flex justify-between p-2 bg-gray-50 rounded">
@@ -714,13 +687,13 @@ IBAN: ${paymentDetails.iban}
                 <div className="flex justify-between p-2 bg-gray-50 rounded">
                   <span style={{color: '#1f2937'}}>Довіреність</span>
                   <span className="font-medium" style={{color: '#1f2937'}}>
-                    {config?.settings?.trust_document_price || '300'}.00 грн
+                    {Number(config.settings.trust_document_price || 0).toFixed(2)} грн
                   </span>
                 </div>
                 <div className="flex justify-between p-2 bg-gray-50 rounded">
                   <span style={{color: '#1f2937'}}>Пакет</span>
                   <span className="font-medium" style={{color: '#1f2937'}}>
-                    {config?.settings?.package_price || '30'}.00 грн
+                    {Number(config.settings.package_price || 0).toFixed(2)} грн
                   </span>
                 </div>
                 <div className="flex justify-between p-2 bg-blue-50 rounded border border-blue-200">
@@ -729,7 +702,7 @@ IBAN: ${paymentDetails.iban}
                     <div className="text-xs text-gray-600">Для нових договорів (альтернатива страхуванню)</div>
                   </div>
                   <span className="font-medium" style={{color: '#1f2937'}}>
-                    {config?.settings?.guarantee_amount || '3000'}.00 грн
+                    {Number(config.settings.guarantee_amount || 0).toFixed(2)} грн
                   </span>
                 </div>
               </div>

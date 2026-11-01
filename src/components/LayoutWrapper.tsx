@@ -27,7 +27,6 @@ function LayoutContent({ children }: LayoutWrapperProps) {
   }, [isAdmin, hasTempPassword, passwordModalShown])
 
   const handleLoginClick = () => {
-    console.log('Login button clicked')
     setShowLoginModal(true)
   }
 
@@ -41,7 +40,6 @@ function LayoutContent({ children }: LayoutWrapperProps) {
     await refreshSession()
     setShowPasswordModal(false)
     // Показуємо сповіщення про успішну зміну пароля
-    console.log('Password changed successfully:', message)
   }
 
   return (

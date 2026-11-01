@@ -69,7 +69,7 @@ export default function ConfirmDialog({
           oscillator.stop(audioContext.currentTime + 0.3)
         } catch (error) {
           // Ігноруємо помилки з аудіо на старих браузерах
-          console.log('Audio not supported')
+          // звук не підтримується — ігноруємо
         }
       }
     } else {

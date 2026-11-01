@@ -44,7 +44,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
         oscillator.start(audioContext.currentTime)
         oscillator.stop(audioContext.currentTime + 0.2)
       } catch (error) {
-        console.log('Audio not supported')
+        // звук не підтримується — ігноруємо
       }
     }
 
@@ -71,7 +71,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
           oscillator.start(audioContext.currentTime)
           oscillator.stop(audioContext.currentTime + 0.3)
         } catch (error) {
-          console.log('Audio not supported')
+          // звук не підтримується — ігноруємо
         }
       }
 
@@ -104,7 +104,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }: LoginModalPro
           oscillator.start(audioContext.currentTime)
           oscillator.stop(audioContext.currentTime + 0.4)
         } catch (error) {
-          console.log('Audio not supported')
+          // звук не підтримується — ігноруємо
         }
       }
 

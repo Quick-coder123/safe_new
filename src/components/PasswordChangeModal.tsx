@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { validatePasswordStrength } from '@/utils/validation'
 
 interface PasswordChangeModalProps {
   isOpen: boolean
@@ -26,7 +27,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isRequired = fals
   const getPasswordStrength = (password: string) => {
     let score = 0
     const checks = [
-      { test: password.length >= 8, points: 1 },
+      { test: password.length >= 10, points: 1 },
       { test: /[a-z]/.test(password), points: 1 },
       { test: /[A-Z]/.test(password), points: 1 },
       { test: /[0-9]/.test(password), points: 1 },
@@ -53,8 +54,9 @@ export default function PasswordChangeModal({ isOpen, onClose, isRequired = fals
       return
     }
 
-    if (newPassword.length < 6) {
-      setError('Пароль повинен містити мінімум 6 символів')
+    const strength = validatePasswordStrength(newPassword)
+    if (!strength.valid) {
+      setError(strength.error!)
       return
     }
 

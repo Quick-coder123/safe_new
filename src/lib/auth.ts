@@ -1,78 +1,61 @@
-import { supabase } from '@/lib/supabase'
+import 'server-only'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSupabase } from '@/lib/supabase'
+import { SESSION_COOKIE, verifySessionToken, type AdminRole } from '@/lib/session'
 
-// Функція для перевірки admin сесії
-export async function validateAdminSession(cookieHeader: string | null): Promise<{ isValid: boolean; admin?: any; error?: string }> {
-  try {
-    console.log('🔍 Auth: Starting session validation...')
-    
-    if (!cookieHeader) {
-      console.log('❌ Auth: No cookie header')
-      return { isValid: false, error: 'No cookie header' }
-    }
+export interface AuthenticatedAdmin {
+  id: number
+  login: string
+  role: AdminRole
+  is_temp_password: boolean
+}
 
-    console.log('🍪 Auth: Cookie header present, length:', cookieHeader.length)
+type AuthResult =
+  | { ok: true; admin: AuthenticatedAdmin }
+  | { ok: false; response: NextResponse }
 
-    // Знаходимо admin_session cookie
-    const cookies = cookieHeader.split('; ')
-    const sessionCookie = cookies.find(cookie => cookie.startsWith('admin_session='))
-    
-    if (!sessionCookie) {
-      console.log('❌ Auth: No admin session cookie found')
-      console.log('🍪 Auth: Available cookies:', cookies.map(c => c.split('=')[0]))
-      return { isValid: false, error: 'No admin session cookie' }
-    }
+const unauthorized = () =>
+  NextResponse.json({ error: 'Не авторизований' }, { status: 401 })
+const forbidden = () =>
+  NextResponse.json({ error: 'Недостатньо прав' }, { status: 403 })
 
-    const sessionValue = sessionCookie.split('=')[1]
-    if (!sessionValue || sessionValue === '') {
-      console.log('❌ Auth: Empty session value')
-      return { isValid: false, error: 'Empty session value' }
-    }
+/**
+ * Перевіряє підписану сесію та актуальний стан адміністратора в базі
+ * (адміністратора могли видалити або змінити йому роль).
+ */
+export async function requireAdmin(
+  request: NextRequest,
+  options: { superAdmin?: boolean; allowTempPassword?: boolean } = {}
+): Promise<AuthResult> {
+  const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value)
+  if (!session) return { ok: false, response: unauthorized() }
 
-    console.log('🔑 Auth: Session value found, length:', sessionValue.length)
+  const { data: admin, error } = await getSupabase()
+    .from('administrators')
+    .select('id, login, role, is_temp_password')
+    .eq('id', session.adminId)
+    .maybeSingle()
 
-    // Декодуємо sessionValue (це login адміністратора)
-    let adminLogin: string
-    try {
-      adminLogin = decodeURIComponent(sessionValue)
-      console.log('👤 Auth: Decoded admin login:', adminLogin)
-    } catch (error) {
-      console.log('❌ Auth: Failed to decode session value:', error)
-      return { isValid: false, error: 'Invalid session format' }
-    }
-
-    // Перевіряємо environment variables
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl || !supabaseKey || supabaseUrl === 'https://placeholder.supabase.co') {
-      console.error('❌ Auth: Environment variables not configured:', { supabaseUrl, keyPresent: !!supabaseKey })
-      return { isValid: false, error: 'Database configuration error' }
-    }
-
-    console.log('🗄️ Auth: Checking admin in database...')
-
-    // Перевіряємо адміністратора в базі даних
-    const { data: admin, error } = await supabase
-      .from('administrators')
-      .select('*')
-      .eq('login', adminLogin)
-      .single()
-
-    if (error) {
-      console.error('❌ Auth: Database query error:', error)
-      return { isValid: false, error: `Database error: ${error.message}` }
-    }
-
-    if (!admin) {
-      console.log('❌ Auth: Admin not found for login:', adminLogin)
-      return { isValid: false, error: 'Admin not found' }
-    }
-
-    console.log('✅ Auth: Session validation successful for admin:', admin.login, 'role:', admin.role)
-    return { isValid: true, admin }
-
-  } catch (error) {
-    console.error('❌ Auth: Session validation exception:', error)
-    return { isValid: false, error: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}` }
+  if (error) {
+    console.error('Auth: помилка читання адміністратора', error.message)
+    return { ok: false, response: NextResponse.json({ error: 'Помилка бази даних' }, { status: 500 }) }
   }
+  if (!admin) return { ok: false, response: unauthorized() }
+
+  // Поки пароль тимчасовий — дозволено лише змінити пароль
+  if (admin.is_temp_password && !options.allowTempPassword) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Потрібно змінити тимчасовий пароль', code: 'TEMP_PASSWORD' },
+        { status: 403 }
+      ),
+    }
+  }
+
+  if (options.superAdmin && admin.role !== 'super_admin') {
+    return { ok: false, response: forbidden() }
+  }
+
+  return { ok: true, admin: admin as AuthenticatedAdmin }
 }

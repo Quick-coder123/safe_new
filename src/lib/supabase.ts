@@ -1,115 +1,59 @@
-import { createClient } from '@supabase/supabase-js'
+import 'server-only'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+/**
+ * Серверний клієнт Supabase.
+ *
+ * Використовує SUPABASE_SERVICE_ROLE_KEY (обходить RLS), тому імпортувати
+ * цей модуль можна ЛИШЕ на сервері (route handlers). Браузер ніколи не
+ * звертається до бази напряму — тільки через наші API з перевіркою сесії.
+ */
 
-// Перевірка наявності реальних змінних середовища в runtime
-if (typeof window !== 'undefined' && supabaseUrl === 'https://placeholder.supabase.co') {
-  console.warn('⚠️ Supabase environment variables not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment variables.')
+const PLACEHOLDER_VALUES = new Set([
+  '',
+  'https://placeholder.supabase.co',
+  'https://your-project-id.supabase.co',
+  'placeholder-key',
+  'your-anon-key-here',
+])
+
+function readEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  return { url, serviceKey, anonKey }
 }
 
-// Додаткова перевірка на сервері
-if (typeof window === 'undefined' && supabaseUrl === 'https://placeholder.supabase.co') {
-  console.error('❌ Server-side: Supabase environment variables not configured!')
-  console.error('Required variables:')
-  console.error('- NEXT_PUBLIC_SUPABASE_URL')
-  console.error('- NEXT_PUBLIC_SUPABASE_ANON_KEY')
+export function isSupabaseConfigured(): boolean {
+  const { url, serviceKey, anonKey } = readEnv()
+  return !PLACEHOLDER_VALUES.has(url) && (!PLACEHOLDER_VALUES.has(serviceKey) || !PLACEHOLDER_VALUES.has(anonKey))
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+let cached: SupabaseClient | null = null
+let warned = false
 
-// Експортуємо функцію для створення нового клієнта
-export function createSupabaseClient() {
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
+export function getSupabase(): SupabaseClient {
+  if (cached) return cached
+  const { url, serviceKey, anonKey } = readEnv()
 
-export type Database = {
-  public: {
-    Tables: {
-      safe_categories: {
-        Row: {
-          id: string
-          name: string
-          rate_up_to_30: number
-          rate_31_to_90: number
-          rate_91_to_180: number
-          rate_181_to_365: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          name: string
-          rate_up_to_30: number
-          rate_31_to_90: number
-          rate_91_to_180: number
-          rate_181_to_365: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          rate_up_to_30?: number
-          rate_31_to_90?: number
-          rate_91_to_180?: number
-          rate_181_to_365?: number
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      insurance_rates: {
-        Row: {
-          id: number
-          min_days: number
-          max_days: number
-          price: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          min_days: number
-          max_days: number
-          price: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          min_days?: number
-          max_days?: number
-          price?: number
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      settings: {
-        Row: {
-          id: number
-          key: string
-          value: string
-          description: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          key: string
-          value: string
-          description?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          key?: string
-          value?: string
-          description?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-    }
+  if (PLACEHOLDER_VALUES.has(url)) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL не налаштовано')
   }
+
+  let key = serviceKey
+  if (PLACEHOLDER_VALUES.has(key)) {
+    if (!warned) {
+      console.warn(
+        'SUPABASE_SERVICE_ROLE_KEY не налаштовано — використовується anon key. ' +
+        'Після ввімкнення RLS (database/migrations/001_security_hardening.sql) запис у базу не працюватиме.'
+      )
+      warned = true
+    }
+    key = anonKey
+  }
+
+  cached = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  return cached
 }
